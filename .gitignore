@@ -1,0 +1,26 @@
+# ignore executable files
+bin/*
+*.out
+
+# ignore c/c++ objective files
+obj/*
+*.o
+
+# ignore prerequisite dependence files
+dep/*
+*.d
+
+# ignore documentation files
+doc/*
+
+# ignore data files
+dat/*
+
+# ignore tmp files
+tmp/*
+
+# ignore python lib object
+*.pyc
+
+# ignore folder config file
+.DS_Store
