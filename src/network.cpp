@@ -21,11 +21,11 @@ inline double L2(vector<double> &x, vector<double> &y) {
 	return sqrt((x[0] - y[0])*(x[0] - y[0]) + (x[1] - y[1])*(x[1] - y[1]));
 }
 
-void NeuronalNetwork::InitializeConnectivity(map<string, string> &m_config) {
-	int connecting_mode = atoi(m_config["ConnectingMode"].c_str());
+void NeuronalNetwork::InitializeConnectivity(po::variables_map &vm) {
+	int connecting_mode = vm["network.mode"].as<int>();
 	if (connecting_mode == 0) { // External connectivity matrix;
 		vector<vector<int> > connecting_matrix;
-		Read2D(m_config["MatPath"], connecting_matrix);
+		Read2D(vm["network.file"].as<string>(), connecting_matrix);
 		if (connecting_matrix.size() != neuron_number_ || connecting_matrix[0].size() != neuron_number_) {
 			throw runtime_error("wrong size of connectivity matrix");
 		} else {
@@ -39,7 +39,7 @@ void NeuronalNetwork::InitializeConnectivity(map<string, string> &m_config) {
 			}
 		}
 	} else if (connecting_mode == 1) {
-		int con_density = atoi(m_config["ConnectingDensity"].c_str());
+		int con_density = vm["network.dens"].as<int>();
 		for (int i = 0; i < neuron_number_; i++)  {
 			for (int j = 0; j < neuron_number_; j++) {
 				if (i != j) {
@@ -50,9 +50,7 @@ void NeuronalNetwork::InitializeConnectivity(map<string, string> &m_config) {
 				}
 			}
 		}
-		double rewiring_probability = atof(m_config["RewiringProbability"].c_str());
-		bool output_option;
-		istringstream(m_config["PrintRewireResult"]) >> boolalpha >> output_option;
+		double rewiring_probability = vm["network.pr"].as<double>();
 		// Generate networks;
 		cout << 2 * neuron_number_ * con_density << " connections total with ";
 		double x; // random variable;
@@ -80,25 +78,25 @@ void NeuronalNetwork::InitializeConnectivity(map<string, string> &m_config) {
 		}
 		cout << count << " rewirings." << endl;
 	} else if (connecting_mode == 2) {
-		double con_prob_ee = atof(m_config["ConnectingProbabilityEE"].c_str());
-		double con_prob_ei = atof(m_config["ConnectingProbabilityEI"].c_str());
-		double con_prob_ie = atof(m_config["ConnectingProbabilityIE"].c_str());
-		double con_prob_ii = atof(m_config["ConnectingProbabilityII"].c_str());
+		double p_ee = vm["network.pee"].as<double>();
+		double p_ei = vm["network.pie"].as<double>();
+		double p_ie = vm["network.pei"].as<double>();
+		double p_ii = vm["network.pii"].as<double>();
 		double x;
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
 				x = rand_distribution(rand_gen);
 				if (types_[i]) {
 					if (types_[j]) {
-						if (x <= con_prob_ee) con_mat_[i][j] = true;
+						if (x <= p_ee) con_mat_[i][j] = true;
 					} else {
-						if (x <= con_prob_ei) con_mat_[i][j] = true;
+						if (x <= p_ei) con_mat_[i][j] = true;
 					}
 				} else {
 					if (types_[j]) {
-						if (x <= con_prob_ie) con_mat_[i][j] = true;
+						if (x <= p_ie) con_mat_[i][j] = true;
 					} else {
-						if (x <= con_prob_ii) con_mat_[i][j] = true;
+						if (x <= p_ii) con_mat_[i][j] = true;
 					}
 				}
 				if (con_mat_[i][j]) {
@@ -109,21 +107,21 @@ void NeuronalNetwork::InitializeConnectivity(map<string, string> &m_config) {
 	}
 }
 
-void NeuronalNetwork::InitializeSynapticStrength(map<string, string> &m_config) {
-	int synaptic_mode = atoi(m_config["SynapticMode"].c_str());
+void NeuronalNetwork::InitializeSynapticStrength(po::variables_map &vm) {
+	int synaptic_mode = vm["synapse.mode"].as<int>();
 	if (synaptic_mode == 0) {
 		vector<vector<double> > s_vals;
-		Read2D(m_config["SPath"], s_vals);
+		Read2D(vm["synapse.file"].as<string>(), s_vals);
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
 				s_mat_[i][j] = s_vals[i][j];
 			}
 		}
 	} else if (synaptic_mode == 1) {
-		double s_ee = atof(m_config["SynapticStrengthEE"].c_str());
-		double s_ei = atof(m_config["SynapticStrengthEI"].c_str());
-		double s_ie = atof(m_config["SynapticStrengthIE"].c_str());
-		double s_ii = atof(m_config["SynapticStrengthII"].c_str());
+		double s_ee = vm["synapse.see"].as<double>();
+		double s_ei = vm["synapse.sie"].as<double>();
+		double s_ie = vm["synapse.sei"].as<double>();
+		double s_ii = vm["synapse.sii"].as<double>();
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
 				if (types_[i]) {
@@ -136,10 +134,10 @@ void NeuronalNetwork::InitializeSynapticStrength(map<string, string> &m_config) 
 			}
 		}
 	} else if (synaptic_mode == 2) {
-		double s_ee = atof(m_config["SynapticStrengthEE"].c_str());
-		double s_ei = atof(m_config["SynapticStrengthEI"].c_str());
-		double s_ie = atof(m_config["SynapticStrengthIE"].c_str());
-		double s_ii = atof(m_config["SynapticStrengthII"].c_str());
+		double s_ee = vm["synapse.see"].as<double>();
+		double s_ei = vm["synapse.sie"].as<double>();
+		double s_ie = vm["synapse.sei"].as<double>();
+		double s_ii = vm["synapse.sii"].as<double>();
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
 				if (types_[i]) {
@@ -152,7 +150,7 @@ void NeuronalNetwork::InitializeSynapticStrength(map<string, string> &m_config) 
 			}
 		}
 		vector<vector<double> > coordinates;
-		Read2D(m_config["CoorPath"], coordinates);
+		Read2D(vm["space.file"].as<string>(), coordinates);
 		double meta_dis;
 		for (int i = 0; i < neuron_number_; i ++) {
 			for (int j = 0; j < i; j ++) {
@@ -164,14 +162,18 @@ void NeuronalNetwork::InitializeSynapticStrength(map<string, string> &m_config) 
 	}
 }
 
-void NeuronalNetwork::InitializeSynapticDelay(map<string, string> &m_config) {
-	if (atoi(m_config["DelayMode"].c_str()) == 0) {
+void NeuronalNetwork::InitializeSynapticDelay(po::variables_map &vm) {
+	int space_mode = vm["space.mode"].as<int>();
+	if (space_mode == 0) {
 		delay_mat_.clear();
-		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, atof(m_config["HomoSynapticDelay"].c_str())));
-	} else if (atoi(m_config["DelayMode"].c_str()) == 1) {
+		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, vm["space.delay"].as<double>()));
+	} else if (space_mode == 1) {
 		vector<vector<double> > coordinates;
-		Read2D(m_config["CoorPath"], coordinates);
-		SetDelay(coordinates, atof(m_config["TransmitSpeed"].c_str()));
+		Read2D(vm["space.file"].as<string>(), coordinates);
+		SetDelay(coordinates, vm["space.speed"].as<double>());
+	} else if (space_mode == -1) {
+		delay_mat_.clear();
+		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
 	}
 }
 
@@ -229,13 +231,14 @@ void NeuronalNetwork::SetRef(double t_ref) {
 	for (int i = 0; i < neuron_number_; i ++) { neurons_[i].SetRef(t_ref); }
 }
 
-void NeuronalNetwork::InitializeNeuronalType(map<string, string> &m_config) {
+void NeuronalNetwork::InitializeNeuronalType(po::variables_map &vm) {
 	int counter = 0;
-	double p = atof(m_config["TypeProbability"].c_str());
-	if (atoi(m_config["TypeMode"].c_str()) == 0) {
+	double p = vm["neuron.p"].as<double>();
+	int neuron_mode = vm["neuron.mode"].as<int>();
+	if (neuron_mode == 0) {
 		counter = floor(neuron_number_*p);
 		for (int i = 0; i < counter; i++) types_[i] = true;
-	} else if (atoi(m_config["TypeMode"].c_str()) == 1) {
+	} else if (neuron_mode == 1) {
 		double x = 0;
 		for (int i = 0; i < neuron_number_; i++) {
 			x = rand_distribution(rand_gen);
@@ -244,9 +247,9 @@ void NeuronalNetwork::InitializeNeuronalType(map<string, string> &m_config) {
 				counter++;
 			}
 		}
-	} else if (atoi(m_config["TypeMode"].c_str()) == 2) {
+	} else if (neuron_mode == 2) {
 		vector<int> type_seq;
-		Read1D(m_config["TypePath"], type_seq, 0, 0);
+		Read1D(vm["neuron.file"].as<string>(), type_seq, 0, 0);
 		for (int i = 0; i < neuron_number_; i ++) {
 			if ( type_seq[i] ) {
 				types_[i] = true;
@@ -257,39 +260,38 @@ void NeuronalNetwork::InitializeNeuronalType(map<string, string> &m_config) {
 	printf(">> %d excitatory and %d inhibitory neurons in the network.\n", counter, neuron_number_-counter);
 }
 
-void NeuronalNetwork::InitializePoissonGenerator(map<string, string>& m_config) {
+void NeuronalNetwork::InitializePoissonGenerator(po::variables_map &vm) {
 	vector<vector<double> > poisson_settings;
 	//	poisson_setting: 
 	//		[:,0] excitatory Poisson rate;
 	//		[:,1] excitatory Poisson strength;
-	int driving_mode = atoi(m_config["DrivingMode"].c_str());
+	int driving_mode = vm["driving.mode"].as<int>();
 	if (driving_mode == 0) {
-		double pr = atof(m_config["pr"].c_str());
-		double ps = atof(m_config["ps"].c_str());
+		double pr = vm["driving.pr"].as<double>();
+		double ps = vm["driving.ps"].as<double>();
 		poisson_settings.resize(neuron_number_, vector<double>{pr, ps});
 	} else if (driving_mode == 1){
 		// import the data file of feedforward driving rate:
-		Read2D(m_config["PoissonPath"], poisson_settings);
+		Read2D(vm["driving.file"].as<string>(), poisson_settings);
 		if (poisson_settings.size() != neuron_number_) {
 			cout << "Error inputing length! (Not equal to the number of neurons in the net)";
 			return;
 		}
 	} else throw runtime_error("wrong driving_mode");
 
-	bool poisson_output;
-	istringstream(m_config["PoissonOutput"]) >> boolalpha >> poisson_output;
+	bool poisson_output = vm["output.poi"].as<bool>();
 	for (int i = 0; i < neuron_number_; i++) {
 		pgs_[i].SetRate(poisson_settings[i][0]);
 		pgs_[i].SetStrength(poisson_settings[i][1]);
 		if (poisson_output) {
-			pgs_[i].SetOuput( m_config["PoissonDir"] + "pg" + to_string(i) + ".csv" );
+			pgs_[i].SetOuput( vm["prefix"].as<string>() + "pg" + to_string(i) + ".csv" );
 		}
 	}
-	istringstream(m_config["PoissonGeneratorMode"]) >> boolalpha >> pg_mode;
+	pg_mode = vm["driving.gmode"].as<bool>();
 
 	if ( pg_mode ) {
 		for (int i = 0; i < neuron_number_; i ++) {
-			pgs_[i].GenerateNewPoisson( atof(m_config["MaximumTime"].c_str()), ext_inputs_[i] );
+			pgs_[i].GenerateNewPoisson( vm["time.T"].as<double>(), ext_inputs_[i] );
 		}
 	}
 }

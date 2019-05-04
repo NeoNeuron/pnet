@@ -9,9 +9,10 @@
 
 #include "io.h"
 #include "neuron.h"
-#include "get-config.h"
 #include "poisson_generator.h"
 #include "common_header.h"
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
 
 using namespace std;
 
@@ -89,13 +90,13 @@ public:
 	// 0. given pre-defined network connectivity matrix;
 	// 1. small-world network, defined by connectivity density and rewiring;
 	// 2. randomly connected network;
-	void InitializeConnectivity(map<string, string> &m_config);
+	void InitializeConnectivity(po::variables_map &vm);
 	
 	// INPUTS:
 	// Set interneuronal coupling strength;
-	void InitializeSynapticStrength(map<string, string> &m_config);
+	void InitializeSynapticStrength(po::variables_map &vm);
 	// Initialize the delay of synaptic interaction;
-	void InitializeSynapticDelay(map<string, string> &m_config);
+	void InitializeSynapticDelay(po::variables_map &vm);
 	
 	// Set time period of refractory:
 	void SetRef(double t_ref);
@@ -103,13 +104,13 @@ public:
 	// 	Initialize neuronal types in the network;
 	//	p: the probability of the presence of excitatory neuron;
 	//	seed: seed for random number generator;
-	void InitializeNeuronalType(map<string, string> &m_config);
+	void InitializeNeuronalType(po::variables_map &vm);
 
 	//	Set driving type: true for external Poisson driven, false for internal ones;
 	void SetDrivingType(bool driving_type);
 
 	//	Initialize internal homogeneous feedforward Poisson rate;
-	void InitializePoissonGenerator(map<string, string>& m_config);
+	void InitializePoissonGenerator(po::variables_map &vm);
 
 	// 	Input new spikes for neurons all together;
 	void InNewSpikes(vector<vector<Spike> > &data);

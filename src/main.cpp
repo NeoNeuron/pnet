@@ -1,8 +1,8 @@
 //*************************
 //	Copyright: Kyle Chen
 //	Author: Kyle Chen
-//	Date: 2018-09-02 
-//	Description: test program for multi-network simulation;
+//	Date: 2019-05-02 
+//	Description: program for point-neuronal-network simulation;
 //*************************
 
 #include "network.h"
@@ -18,43 +18,114 @@ uniform_real_distribution<> rand_distribution(0.0, 1.0);
 //	argv[2] = Output directory for neural data;
 //
 int main(int argc, const char* argv[]) {
-	if (argc != 3) throw runtime_error("wrong number of args");
 	clock_t start, finish;
 	start = clock();
-	// 	Setup directory for output files;
-	//	it must be existing dir;
+	// Config program options:
+	po::options_description desc("All Options");
+	desc.add_options()
+		("help", "produce help message")
+		("config_file,c", po::value<string>(), "config file")
+		("prefix", po::value<string>()->default_value("./"), "prefix of output files")
+		;
+	po::options_description config("Configs");
+	config.add_options()
+		// [network]
+		("network.size", po::value<int>(), "number of neurons")
+		("network.mode", po::value<int>(), "mode of network structure:\n0: external defined connectivity\n1:small-world network\n2: random network")
+		("network.file", po::value<string>(), "file of external defined connectivity matrix")
+		("network.pee", po::value<double>(), "connecting probability: exc -> exc")
+		("network.pie", po::value<double>(), "connecting probability: exc -> inh")
+		("network.pei", po::value<double>(), "connecting probability: inh -> exc")
+		("network.pii", po::value<double>(), "connecting probability: inh -> inh")
+		("network.dens", po::value<int>(), "half of number of connection per neuron in 'small-world' case")
+		("network.pr", po::value<double>(), "rewiring probability in 'small-world' case")
+		("network.seed", po::value<int>(), "seed to generate network")
+		// [neuron]
+		("neuron.model", po::value<string>(), "type of neuronal model") 
+		("neuron.tref", po::value<double>(), "refractory period") 
+		("neuron.mode", po::value<int>(), "distribution mode of neuronal types:\n 0: sequential,\n 1: random,\n 2: external defined;")
+		("neuron.p", po::value<double>(), "probability of excitatory neurons")
+		("neuron.seed", po::value<int>()->default_value(0), "seed to generate types")
+		("neuron.file", po::value<string>(), "file of neuronal types")
+		// [synapse]
+		("synapse.mode", po::value<int>(), "distribution mode of synaptic strength:\n 0: external defined\n 1: fixed for specific pairs\n 2: fixed with spatial decay")
+		("synapse.file", po::value<string>(), "file of synaptic strength")
+		("synapse.see", po::value<double>(), "synaptic strength: exc -> exc")
+		("synapse.sie", po::value<double>(), "synaptic strength: exc -> inh")
+		("synapse.sei", po::value<double>(), "synaptic strength: inh -> exc")
+		("synapse.sii", po::value<double>(), "synaptic strength: inh -> inh")
+		// [space]
+		("space.mode", po::value<int>()->default_value(-1), "delay mode:\n0: homogeneous delay\n1: distance-dependent delay\n-1: no delay")
+		("space.delay", po::value<double>()->default_value(0.0), "synaptic delay time")
+		("space.speed", po::value<double>(), "transmitting speed of spikes")	
+		("space.file", po::value<string>(), "file of spatial location of neurons")
+		// [driving]
+		("driving.mode", po::value<int>(), "driving mode:\n0: homogeneous Poisson\n1: Poisson with external defined settings")
+		("driving.pr", po::value<double>(), "Poisson rate")
+		("driving.ps", po::value<double>(), "Poisson strength")
+		("driving.file", po::value<string>(), "file of Poisson settings")
+		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
+		("driving.gmode", po::value<bool>()->default_value(true), "")
+		// [time]
+		("time.T", po::value<double>(), "total simulation time")
+		("time.dt", po::value<double>(), "simulation time step")
+		("time.stp", po::value<double>(), "sampling time step")
+		// [output]
+		("output.poi", po::value<bool>()->default_value(false), "output flag of Poisson Drive")
+		("output.V", po::value<bool>()->default_value(false), "output flag of V")
+		("output.I", po::value<bool>()->default_value(false), "output flag of I")
+		("output.GE", po::value<bool>()->default_value(false), "output flag of GE")
+		("output.GI", po::value<bool>()->default_value(false), "output flag of GI")
+		;
+	po::variables_map vm;
+	po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::notify(vm);
+	if (vm.count("help")) {
+		cout << desc << '\n';
+		cout << config << '\n';
+		return 1;
+	}
+	// existing directory for output files;
 	string dir;
-	dir = argv[2];
+	dir = vm["prefix"].as<string>();
 
 	// Loading config.ini:
-	string net_config_path = argv[1];
-  map<string, string> m_map_config;
-  ReadConfig(net_config_path,m_map_config);
-  cout << ">> [Config.ini]:\n#####\n";
-	PrintConfig(m_map_config);
-	cout << "#####\n";
-	// load neuron number;
-	int neuron_number = atoi(m_map_config["NeuronNumber"].c_str());
-	NeuronalNetwork net(m_map_config["NeuronType"], neuron_number);
+	ifstream config_file;
+	if (vm.count("config_file")) {
+		config_file.open(vm["config_file"].as<string>().c_str());
+	} else {
+		cout << "lack of config_file\n";
+		return -1;
+	}
+	po::store(po::parse_config_file(config_file, config), vm);
+	po::notify(vm);
+	cout << ">> Configs loaded.\n";
+
+	//
+	// Network initialization
+	//
+	int neuron_number = vm["network.size"].as<int>();
+	NeuronalNetwork net(vm["neuron.model"].as<string>(), neuron_number);
 	// initialize the network;
-	rand_gen.seed(atoi(m_map_config["TypeSeed"].c_str()));
-	net.InitializeNeuronalType(m_map_config);
+	rand_gen.seed(vm["neuron.seed"].as<int>());
+	net.InitializeNeuronalType(vm);
 	// load connecting mode;
-	rand_gen.seed(atoi(m_map_config["NetSeed"].c_str()));
-	net.InitializeConnectivity(m_map_config);
+	rand_gen.seed(vm["network.seed"].as<int>());
+	net.InitializeConnectivity(vm);
+	rand_gen.seed(vm["network.seed"].as<int>());
 	// Set interneuronal coupling strength;
-	net.InitializeSynapticStrength(m_map_config);
-	net.InitializeSynapticDelay(m_map_config);
-	net.SetRef(atof(m_map_config["RefractoryTime"].c_str()));
+	net.InitializeSynapticStrength(vm);
+	net.InitializeSynapticDelay(vm);
+	net.SetRef(vm["neuron.tref"].as<double>());
 
 	// Set driving_mode;
-	rand_gen.seed(atoi(m_map_config["pSeed"].c_str()));
-	net.InitializePoissonGenerator(m_map_config);
+	rand_gen.seed(vm["driving.seed"].as<int>());
+	net.InitializePoissonGenerator(vm);
 
 	// SETUP DYNAMICS:
-	double t = 0, dt = atof(m_map_config["TimingStep"].c_str());
-	double tmax = atof(m_map_config["MaximumTime"].c_str());
-	double recording_rate = 1.0 / atof(m_map_config["SamplingTimingStep"].c_str());
+	double t = 0, dt = vm["time.dt"].as<double>();
+	double tmax = vm["time.T"].as<double>();
+	double recording_rate = 1.0 / vm["time.stp"].as<double>();
 	// Define the shape of data;
 	size_t shape[2];
 	shape[0] = tmax * recording_rate;
@@ -62,10 +133,10 @@ int main(int argc, const char* argv[]) {
 
 	// Define file-outputing flags;
 	bool v_flag, i_flag, ge_flag, gi_flag;
-	istringstream(m_map_config["SaveV"]) >> boolalpha >> v_flag;
-	istringstream(m_map_config["SaveI"]) >> boolalpha >> i_flag;
-	istringstream(m_map_config["SaveGE"]) >> boolalpha >> ge_flag;
-	istringstream(m_map_config["SaveGI"]) >> boolalpha >> gi_flag;
+	v_flag = vm["output.V"].as<bool>();
+	i_flag = vm["output.I"].as<bool>();
+	ge_flag = vm["output.GE"].as<bool>();
+	gi_flag = vm["output.GI"].as<bool>();
 
 	// Create file-write objects;
 	FILEWRITE v_file(dir + "V.bin", "trunc");
