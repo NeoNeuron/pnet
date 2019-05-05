@@ -1,6 +1,10 @@
 # Point-Neuronal-Network Simulation Frameworks
 Point neuronal network simulator framework for academic use, initiating from my bachleor thesis.[^1][^2]
 
+## Current supported neuronal models
+- Conductance based leaky integrate-and-fire model (LIF_G)
+- Conductance based leaky integrate-and-fire model with first order smoothness in conductance (LIF_GH)
+- Current based leaky integrate-and-fire model (LIF_I)
 
 ## Contents
 ```shell

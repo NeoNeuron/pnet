@@ -25,9 +25,9 @@ void NeuronSim::InputExternalPoisson(double tmax, queue<Spike>& x) {
 
 void NeuronSim::SetDefaultDymVal(double *&dym_val) {
 	if ( !dym_val ) {
-		dym_val = new double[ p_neuron_ -> GetDymNum() ];
+		dym_val = new double[ p_neuron_->GetDymNum() ];
 	}
-	p_neuron_ -> SetDefaultDymVal(dym_val);
+	p_neuron_->SetDefaultDymVal(dym_val);
 }
 
 void NeuronSim::Reset(double *dym_val) {
@@ -35,7 +35,7 @@ void NeuronSim::Reset(double *dym_val) {
 	spike_train_.clear();
 	cycle_ = 0;
 	// reset dynamic variables;
-	p_neuron_ -> SetDefaultDymVal(dym_val);
+	p_neuron_->SetDefaultDymVal(dym_val);
 }
 
 void NeuronSim::OutSpikeTrain(vector<double> & spikes) {
@@ -64,37 +64,37 @@ double NeuronSim::UpdateNeuronalState(double *dym_val, double t, double dt, queu
 	double t_spike;
 	vector<Spike>::iterator s_begin = synaptic_driven_.begin();
 	if (s_begin == synaptic_driven_.end() || tmax <= s_begin->t) {
-		t_spike = p_neuron_ -> DymCore(dym_val, dt);
+		t_spike = p_neuron_->DymCore(dym_val, dt);
 		cycle_ ++;
 		if (t_spike >= 0) new_spikes.push_back(t_spike);
 	} else {
 		if (t != s_begin->t) {
-			t_spike = p_neuron_ -> DymCore(dym_val, s_begin->t - t);
+			t_spike = p_neuron_->DymCore(dym_val, s_begin->t - t);
 			cycle_ ++;
 			if (t_spike >= 0) new_spikes.push_back(t_spike);
 		}
 		for (vector<Spike>::iterator iter = s_begin; iter != synaptic_driven_.end(); iter++) {
 			// Update conductance due to the synaptic inputs;
-			if (iter -> type) dym_val[ p_neuron_ -> GetGEID() ] += iter -> s;
-			else dym_val[ p_neuron_ -> GetGIID() ] += iter -> s;
+			if (iter->type) dym_val[ p_neuron_->GetIDGEInject() ] += iter->s;
+			else dym_val[ p_neuron_->GetIDGIInject() ] += iter->s;
 			if (iter + 1 == synaptic_driven_.end() || (iter + 1)->t >= tmax) {
-				t_spike = p_neuron_ -> DymCore(dym_val, tmax - iter->t);
+				t_spike = p_neuron_->DymCore(dym_val, tmax - iter->t);
 				cycle_ ++;
 				if (t_spike >= 0) new_spikes.push_back(t_spike);
 				break;
 			} else {
-				t_spike = p_neuron_ -> DymCore(dym_val, (iter + 1)->t - iter->t);
+				t_spike = p_neuron_->DymCore(dym_val, (iter + 1)->t - iter->t);
 				cycle_ ++;
 				if (t_spike >= 0) new_spikes.push_back(t_spike);
 			}
 		}
 	}
-	return dym_val[p_neuron_ -> GetVID()];
+	return dym_val[p_neuron_->GetIDV()];
 }
 
 double NeuronSim::CleanUsedInputs(double *dym_val, double *dym_val_new, double tmax) {
 	// Update dym_val with dym_val_new;
-	for (int i = 0; i < p_neuron_ -> GetDymNum(); i ++) dym_val[i] = dym_val_new[i];
+	for (int i = 0; i < p_neuron_->GetDymNum(); i ++) dym_val[i] = dym_val_new[i];
 	// clean old synaptic driven;
 	int slen = synaptic_driven_.size();
 	if (slen != 0) {
@@ -104,25 +104,25 @@ double NeuronSim::CleanUsedInputs(double *dym_val, double *dym_val_new, double t
 		}
 		synaptic_driven_.erase(synaptic_driven_.begin(), synaptic_driven_.begin() + i);
 	}
-	return dym_val[p_neuron_ -> GetVID()];
+	return dym_val[p_neuron_->GetIDV()];
 }
 
 void NeuronSim::UpdateSource(double *dym_val, double t, double dt) {
 	double tmax = t + dt;
 	if (synaptic_driven_.empty() || tmax <= synaptic_driven_.begin()->t) {
-		p_neuron_ -> UpdateSource(dym_val, dt);
+		p_neuron_->UpdateSource(dym_val, dt);
 	} else {
 		if (t != synaptic_driven_.begin()->t) {
-			p_neuron_ -> UpdateSource(dym_val, synaptic_driven_.begin()->t - t);
+			p_neuron_->UpdateSource(dym_val, synaptic_driven_.begin()->t - t);
 		}
 		for (vector<Spike>::iterator iter = synaptic_driven_.begin(); iter != synaptic_driven_.end(); iter++) {
-			if (iter -> s) dym_val[ p_neuron_ -> GetGEID() ] += iter -> s;
-			else dym_val[ p_neuron_ -> GetGIID() ] += iter -> s;
+			if (iter->type) dym_val[ p_neuron_->GetIDGEInject() ] += iter->s;
+			else dym_val[ p_neuron_->GetIDGIInject() ] += iter->s;
 			if (iter + 1 == synaptic_driven_.end() || (iter + 1)->t >= tmax) {
-				p_neuron_ -> UpdateSource(dym_val, tmax - iter->t);
+				p_neuron_->UpdateSource(dym_val, tmax - iter->t);
 				break;
 			} else {
-				p_neuron_ -> UpdateSource(dym_val, (iter + 1)->t - iter->t);
+				p_neuron_->UpdateSource(dym_val, (iter + 1)->t - iter->t);
 			}
 		}
 	}
