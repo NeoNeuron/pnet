@@ -19,14 +19,11 @@ void NeuronSim::InputExternalPoisson(double tmax, queue<Spike>& x) {
 			x.pop();
 			if ( x.empty() ) break;
 		}
+		sort(synaptic_driven_.begin(), synaptic_driven_.end(), compSpike);
 	}
-	sort(synaptic_driven_.begin(), synaptic_driven_.end(), compSpike);
 }
 
-void NeuronSim::SetDefaultDymVal(double *&dym_val) {
-	if ( !dym_val ) {
-		dym_val = new double[ p_neuron_->GetDymNum() ];
-	}
+void NeuronSim::SetDefaultDymVal(double *dym_val) {
 	p_neuron_->SetDefaultDymVal(dym_val);
 }
 
@@ -53,7 +50,9 @@ void NeuronSim::GetNewSpikes(double t, vector<Spike>& x) {
 		if (*iter >= t) {
 			add_spike.t = *iter;
 			x.push_back(add_spike);
-		} else break;
+		} else {
+			break;
+		}
 	}
 }
 
@@ -94,10 +93,10 @@ double NeuronSim::UpdateNeuronalState(double *dym_val, double t, double dt, queu
 
 double NeuronSim::CleanUsedInputs(double *dym_val, double *dym_val_new, double tmax) {
 	// Update dym_val with dym_val_new;
-	for (int i = 0; i < p_neuron_->GetDymNum(); i ++) dym_val[i] = dym_val_new[i];
+	memcpy(dym_val, dym_val_new, sizeof(double)*p_neuron_->GetDymNum());
 	// clean old synaptic driven;
-	int slen = synaptic_driven_.size();
-	if (slen != 0) {
+	if (!synaptic_driven_.empty()) {
+		int slen = synaptic_driven_.size();
 		int i = 0;
 		for (; i < slen; i ++) {
 			if (synaptic_driven_[i].t >= tmax) break;
@@ -141,11 +140,12 @@ void NeuronSim::Fire(double t, vector<double>& spike_times) {
 void NeuronSim::InSpike(Spike x) {
 	if (synaptic_driven_.empty()) {
 		synaptic_driven_.push_back(x);
-	} else if (synaptic_driven_.back().t < x.t) {
-		synaptic_driven_.push_back(x);
 	} else {
-		synaptic_driven_.push_back(x);
-		sort(synaptic_driven_.begin(),synaptic_driven_.end(),compSpike);
+		if (synaptic_driven_.back().t < x.t) {
+			synaptic_driven_.push_back(x);
+		} else {
+			synaptic_driven_.push_back(x);
+			sort(synaptic_driven_.begin(),synaptic_driven_.end(),compSpike);
+		}
 	}
 }
-

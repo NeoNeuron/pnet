@@ -8,7 +8,7 @@
 
 using namespace std;
 
-void Scan(vector<bool> & mat, int target_value, vector<int> &output_indices) {
+void Scan(vector<bool> & mat, bool target_value, vector<int> &output_indices) {
 	output_indices.clear();
 	for (int s = 0; s < mat.size(); s++) {
 		if (mat[s] == target_value) output_indices.push_back(s);
@@ -57,11 +57,11 @@ void NeuronalNetwork::InitializeConnectivity(po::variables_map &vm) {
 		int ind, empty_connection, count = 0;
 		vector<int> ones, zeros;
 		for (int i = 0; i < neuron_number_; i++) {
-			Scan(con_mat_[i], 1, ones);
+			Scan(con_mat_[i], true, ones);
 			for (int j = 0; j < ones.size(); j++) {
 				x = rand_distribution(rand_gen);
 				if (x <= rewiring_probability) {
-					Scan(con_mat_[i], 0, zeros);
+					Scan(con_mat_[i], false, zeros);
 					for (vector<int>::iterator it = zeros.begin(); it != zeros.end(); it++) {
 						if (*it == i) {
 							zeros.erase(it);
@@ -195,7 +195,7 @@ void NeuronalNetwork::SetDelay(vector<vector<double> > &coordinates, double spee
 	}
 }
 
-double NeuronalNetwork::SortSpikes(vector<int> &update_list, vector<int> &fired_list, double t, double dt, vector<SpikeElement> &T) {
+double NeuronalNetwork::SortSpikes(DymVals &dym_vals_new, vector<int> &update_list, vector<int> &fired_list, double t, double dt, vector<SpikeElement> &T) {
 	vector<double> tmp_spikes;
 	SpikeElement ADD;	
 	// start scanning;
@@ -204,12 +204,14 @@ double NeuronalNetwork::SortSpikes(vector<int> &update_list, vector<int> &fired_
 		id = update_list[i];
 		// Check whether id's neuron is in the fired list;
 		if (CheckExist(id, fired_list)) {
-			for (int j = 1; j < 3; j ++) dym_vals_new_[id][j] = dym_vals_[id][j];
-			neurons_[id].UpdateSource(dym_vals_new_[id], t, dt);
+			memcpy(GetPtr(dym_vals_new, id)+1, GetPtr(dym_vals_, id)+1, sizeof(double)*(dym_n_-2));
+			//for (int j = 1; j < dym_n_ - 1; j ++) dym_vals_new[id][j] = dym_vals_(id, j);
+			neurons_[id].UpdateSource(GetPtr(dym_vals_new,id), t, dt);
 		} else {
-			for (int j = 0; j < 4; j ++) dym_vals_new_[id][j] = dym_vals_[id][j];
-			neurons_[id].UpdateNeuronalState(dym_vals_new_[id], t, dt, ext_inputs_[id], tmp_spikes);
-			if (tmp_spikes.size() > 0) {
+			memcpy(GetPtr(dym_vals_new, id), GetPtr(dym_vals_, id), sizeof(double)*dym_n_);
+			//for (int j = 0; j < dym_n_; j ++) dym_vals_new[id][j] = dym_vals_(id, j);
+			neurons_[id].UpdateNeuronalState(GetPtr(dym_vals_new, id), t, dt, ext_inputs_[id], tmp_spikes);
+			if (!tmp_spikes.empty()) {
 				ADD.index = id;
 				ADD.t = tmp_spikes.front();
 				ADD.type = types_[id];
@@ -311,17 +313,19 @@ void NeuronalNetwork::InNewSpikes(vector<vector<Spike> > & data) {
 void NeuronalNetwork::UpdateNetworkState(double t, double dt) {
 	if ( !pg_mode ) {
 		for (int i = 0; i < neuron_number_; i ++) {
-			pgs_[i].GenerateNewPoisson(t + dt, ext_inputs_[i] );
+			pgs_[i].GenerateNewPoisson(t + dt, ext_inputs_[i]);
 		}
 	}
 
 	if (is_con_) {
+		DymVals dym_vals_new(neuron_number_, dym_n_);
+		memcpy(dym_vals_new.data(), dym_vals_.data(), sizeof(double)*neuron_number_*dym_n_);
 		vector<SpikeElement> T;
 		double newt;
 		// Creating updating pool;
 		vector<int> update_list, fired_list;
 		for (int i = 0; i < neuron_number_; i++) update_list.push_back(i);
-		newt = SortSpikes(update_list, fired_list, t, dt, T);
+		newt = SortSpikes(dym_vals_new, update_list, fired_list, t, dt, T);
 		while (newt > 0) {
 			update_list.clear();
 			int IND = (T.front()).index;
@@ -349,17 +353,17 @@ void NeuronalNetwork::UpdateNetworkState(double t, double dt) {
 					}
 				}
 			}
-			newt = SortSpikes(update_list, fired_list, t, dt, T);
+			newt = SortSpikes(dym_vals_new, update_list, fired_list, t, dt, T);
 		}
 		for (int i = 0; i < neuron_number_; i++) {
-			neurons_[i].CleanUsedInputs(dym_vals_[i], dym_vals_new_[i], t + dt);
+			neurons_[i].CleanUsedInputs(GetPtr(dym_vals_, i), GetPtr(dym_vals_new, i), t + dt);
 		}
 	} else {
 		vector<double> new_spikes;
 		for (int i = 0; i < neuron_number_; i++) {
-			neurons_[i].UpdateNeuronalState(dym_vals_[i], t, dt, ext_inputs_[i], new_spikes);
-			if ( new_spikes.size() > 0 ) neurons_[i].Fire(t, new_spikes);
-			neurons_[i].CleanUsedInputs(dym_vals_[i], dym_vals_[i], t + dt);
+			neurons_[i].UpdateNeuronalState(GetPtr(dym_vals_, i), t, dt, ext_inputs_[i], new_spikes);
+			if ( !new_spikes.empty() ) neurons_[i].Fire(t, new_spikes);
+			neurons_[i].CleanUsedInputs(GetPtr(dym_vals_, i), GetPtr(dym_vals_, i), t + dt);
 		}
 	}
 }
@@ -374,7 +378,7 @@ void NeuronalNetwork::PrintCycle() {
 void NeuronalNetwork::OutPotential(FILEWRITE& file) {
 	vector<double> potential(neuron_number_);
 	for (int i = 0; i < neuron_number_; i++) {
-		potential[i] = neurons_[i].GetPotential(dym_vals_[i]);
+		potential[i] = neurons_[i].GetPotential(GetPtr(dym_vals_, i));
 	}
 	file.Write(potential);
 }
@@ -382,7 +386,7 @@ void NeuronalNetwork::OutPotential(FILEWRITE& file) {
 void NeuronalNetwork::OutConductance(FILEWRITE& file, bool type) {
 	vector<double> conductance(neuron_number_);
 	for (int i = 0; i < neuron_number_; i++) {
-		conductance[i] = neurons_[i].GetConductance(dym_vals_[i], type);
+		conductance[i] = neurons_[i].GetConductance(GetPtr(dym_vals_, i), type);
 	}
 	file.Write(conductance);
 }
@@ -390,7 +394,7 @@ void NeuronalNetwork::OutConductance(FILEWRITE& file, bool type) {
 void NeuronalNetwork::OutCurrent(FILEWRITE& file) {
 	vector<double> current(neuron_number_);
 	for (int i = 0; i < neuron_number_; i++) {
-		current[i] = neurons_[i].GetCurrent(dym_vals_[i]);
+		current[i] = neurons_[i].GetCurrent(GetPtr(dym_vals_, i));
 	}
 	file.Write(current);
 }
@@ -431,12 +435,12 @@ int NeuronalNetwork::GetNeuronNumber() {
 }
 
 void NeuronalNetwork::GetConductance(int i, bool type) {
-	neurons_[i].GetConductance(dym_vals_[i], type);
+	neurons_[i].GetConductance(GetPtr(dym_vals_, i), type);
 }
 
 void NeuronalNetwork::RestoreNeurons() {
 	for (int i = 0; i < neuron_number_; i++) {
-		neurons_[i].Reset(dym_vals_[i]);
+		neurons_[i].Reset(GetPtr(dym_vals_, i));
 		pgs_[i].Reset();
 	}
 	ext_inputs_.clear();

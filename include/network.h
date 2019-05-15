@@ -4,14 +4,15 @@
 //	Date: 2018-05-31
 //	Description: define Struct SpikeElement and Class NeuronalNetwork;
 //***************
-#ifndef _IFNET_NETWORK_H_
-#define _IFNET_NETWORK_H_
+#ifndef _NETWORK_H_
+#define _NETWORK_H_
 
 #include "io.h"
 #include "neuron.h"
 #include "poisson_generator.h"
 #include "common_header.h"
 #include <boost/program_options.hpp>
+#include <eigen3/Eigen/Dense>
 namespace po = boost::program_options;
 
 using namespace std;
@@ -24,10 +25,17 @@ struct SpikeElement {
 
 bool compSpikeElement(const SpikeElement &x, const SpikeElement &y);
 
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> DymVals; 
+
+inline double* GetPtr(DymVals &mat, int id) {
+	return mat.data() + id * mat.cols();
+}
+
 class NeuronalNetwork {
 private:
 	// Neuron Simulators:
 	vector<NeuronSim> neurons_;
+	int dym_n_;
 	
 	// PoissonGenerators:
 	vector<PoissonGenerator> pgs_;
@@ -35,8 +43,7 @@ private:
 
 	// Network Parameters:
 	int neuron_number_;	// number of the neurons in the group;
-	vector<double*> dym_vals_; // dynamic variables of neurons;
-	vector<double*> dym_vals_new_; // temporal dynamic variables of neurons;
+	DymVals dym_vals_;	// dynamic variables of neurons;
 	vector<bool> types_; // vector to store types of neurons;
 
 	// Network Structure:
@@ -55,7 +62,7 @@ private:
 	void SetDelay(vector<vector<double> > &coordinates, double speed);
 
 	// Sort spikes within single time interval, and return the time of first spike;
-	double SortSpikes(vector<int>& update_list, vector<int>& fired_list, double t, double dt, vector<SpikeElement> &T);
+	double SortSpikes(DymVals &dym_val_new, vector<int>& update_list, vector<int>& fired_list, double t, double dt, vector<SpikeElement> &T);
 
 public:
 	//	Neuronal network initialization:
@@ -63,11 +70,14 @@ public:
 		// Network Parameters:
 		neuron_number_ = neuron_number;
 		neurons_.resize(neuron_number_, NeuronSim(neuron_type));
-		dym_vals_.resize(neuron_number_, NULL);
-		dym_vals_new_.resize(neuron_number_, NULL);
+		if (neuron_type == "LIF_GH") {
+			dym_n_ = 6;
+		} else {
+			dym_n_ = 4;
+		}
+		dym_vals_.resize(neuron_number_, dym_n_);
 		for (int i = 0; i < neuron_number_; i++) {
-			neurons_[i].SetDefaultDymVal(dym_vals_[i]);
-			neurons_[i].SetDefaultDymVal(dym_vals_new_[i]);
+			neurons_[i].SetDefaultDymVal(GetPtr(dym_vals_, i));
 		}
 		pgs_.resize(neuron_number_);
 		types_.resize(neuron_number_, false);
@@ -79,12 +89,7 @@ public:
 		ext_inputs_.resize(neuron_number_);
 	}
 	
-	~NeuronalNetwork() {
-		for (int i = 0; i < neuron_number_; i++) {
-			delete dym_vals_[i];
-			delete dym_vals_new_[i];
-		}
-	}
+	~NeuronalNetwork() {  }
 	// Initialize network connectivity matrix:
 	// Three options:
 	// 0. given pre-defined network connectivity matrix;
@@ -156,4 +161,4 @@ public:
 	void GetConductance(int i, bool function);
 };
 
-#endif // _IFNET_NETWORK_H_
+#endif // _NETWORK_H_

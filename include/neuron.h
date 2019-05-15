@@ -169,7 +169,7 @@ class LIF_GH_Model {
 		}
 
 		// DYNAMICS:
-
+		//
 		//	Only update conductance after dt;
 		//		g(t) = S * ( exp(-t/td) - exp(-t/tr) )
 		//
@@ -467,7 +467,7 @@ class NeuronSim {
 			cycle_ = 0;
 		}
 
-		void SetDefaultDymVal(double *&dym_val);
+		void SetDefaultDymVal(double *dym_val);
 
 		// INPUTS:
 		// Set refractory period:
