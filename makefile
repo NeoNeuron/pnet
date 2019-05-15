@@ -8,8 +8,10 @@ DIR_INC = include
 DIR_BIN = bin
 DIR_OBJ = obj
 DIR_DEP = dep
+DIR_TEST = test
 DIRS = $(DIR_BIN) $(DIR_DEP) $(DIR_OBJ)
 vpath %.cpp $(DIR_SRC)
+vpath %.cpp $(DIR_TEST)
 vpath %.h 	$(DIR_INC)
 vpath %.hpp $(DIR_INC)
 SRCS := $(notdir $(wildcard $(DIR_SRC)/*.cpp))
@@ -19,11 +21,22 @@ OBJS = $(SRCS:.cpp=.o)
 OBJS := $(addprefix $(DIR_OBJ)/, $(OBJS))
 BIN := $(DIR_BIN)/net_sim
 
-.PHONY : all
-all : $(BIN)
+SRCS_TEST := $(subst main.cpp,main_test.cpp,$(SRCS))
+DEPS_TEST = $(SRCS_TEST:.cpp=.d)
+DEPS_TEST := $(addprefix $(DIR_DEP)/, $(DEPS_TEST))
+OBJS_TEST = $(SRCS_TEST:.cpp=.o)
+OBJS_TEST := $(addprefix $(DIR_OBJ)/, $(OBJS_TEST))
+BIN_TEST := $(DIR_BIN)/net_sim_test
 
 $(BIN) : $(DIRS) $(OBJS)
 	$(CXX) $(CPPFLAGS) -o $(BIN) $(OBJS) $(LDLIBS)
+
+$(BIN_TEST) : $(DIRS) $(OBJS_TEST)
+	$(CXX) $(CPPFLAGS) -o $(BIN_TEST) $(OBJS_TEST) $(LDLIBS)
+
+.PHONY : all test
+all : $(BIN) $(BIN_TEST)
+test : $(BIN_TEST)
 
 $(DIRS) : 
 	@mkdir -p $@
@@ -32,7 +45,11 @@ $(DIR_OBJ)/%.o : %.cpp
 	$(CXX) -o $@ -c $(CXXFLAGS) $(CPPFLAGS) $^
 
 ifneq ($(MAKECMDGOALS),clean)
+ifeq ($(MAKECMDGOALS),test)
+-include $(DEPS_TEST)
+else
 -include $(DEPS)
+endif
 endif
 
 ifeq ($(wildcard $(DIR_DEP)),)

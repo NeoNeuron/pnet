@@ -1,22 +1,15 @@
-//*************************
+//***************
 //	Copyright: Kyle Chen
 //	Author: Kyle Chen
-//	Date: 2019-05-02 
-//	Description: program for point-neuronal-network simulation;
-//*************************
-
+//	Date: 2019-05-08
+//	Description: test program for Class NeuronalNetwork;
+//***************
 #include "network.h"
 using namespace std;
 
 mt19937 rand_gen(1);
 uniform_real_distribution<> rand_distribution(0.0, 1.0);
 
-//	Simulation program for single network system;
-//	
-//	arguments:
-//	argv[1] = path of config file;
-//	argv[2] = Output directory for neural data;
-//
 int main(int argc, const char* argv[]) {
 	clock_t start, finish;
 	start = clock();
@@ -24,8 +17,8 @@ int main(int argc, const char* argv[]) {
 	po::options_description desc("All Options");
 	desc.add_options()
 		("help", "produce help message")
-		("config_file,c", po::value<string>(), "config file")
-		("prefix", po::value<string>()->default_value("./"), "prefix of output files")
+		("config_file,c", po::value<string>()->default_value("test/config_test.ini"), "config file")
+		("prefix", po::value<string>()->default_value("test/"), "prefix of output files")
 		;
 	po::options_description config("Configs");
 	config.add_options()
@@ -68,14 +61,11 @@ int main(int argc, const char* argv[]) {
 		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
 		// [time]
 		("time.T", po::value<double>(), "total simulation time")
-		("time.dt", po::value<double>(), "simulation time step")
+		("time.dt0", po::value<double>(), "initial time step")
 		("time.stp", po::value<double>(), "sampling time step")
+		("time.reps", po::value<int>(), "repeating times")
 		// [output]
 		("output.poi", po::value<bool>()->default_value(false), "output flag of Poisson Drive")
-		("output.V", po::value<bool>()->default_value(false), "output flag of V")
-		("output.I", po::value<bool>()->default_value(false), "output flag of I")
-		("output.GE", po::value<bool>()->default_value(false), "output flag of GE")
-		("output.GI", po::value<bool>()->default_value(false), "output flag of GI")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -91,16 +81,10 @@ int main(int argc, const char* argv[]) {
 
 	// Loading config.ini:
 	ifstream config_file;
-	if (vm.count("config_file")) {
-		config_file.open(vm["config_file"].as<string>().c_str());
-	} else {
-		cout << "lack of config_file\n";
-		return -1;
-	}
+	config_file.open(vm["config_file"].as<string>().c_str());
 	po::store(po::parse_config_file(config_file, config), vm);
 	po::notify(vm);
 	cout << ">> Configs loaded.\n";
-
 	//
 	// Network initialization
 	//
@@ -118,81 +102,53 @@ int main(int argc, const char* argv[]) {
 	net.InitializeSynapticDelay(vm);
 	net.SetRef(vm["neuron.tref"].as<double>());
 
-	// Set driving_mode;
-	rand_gen.seed(vm["driving.seed"].as<int>());
-	net.InitializePoissonGenerator(vm);
-
 	// SETUP DYNAMICS:
-	double t = 0, dt = vm["time.dt"].as<double>();
+	double t = 0, dt = vm["time.dt0"].as<double>();
 	double tmax = vm["time.T"].as<double>();
-	double recording_rate = 1.0 / vm["time.stp"].as<double>();
+	int reps = vm["time.reps"].as<int>();
 	// Define the shape of data;
 	size_t shape[2];
-	shape[0] = tmax * recording_rate;
+	shape[0] = reps;
 	shape[1] = neuron_number;
 
-	// Define file-outputing flags;
-	bool v_flag, i_flag, ge_flag, gi_flag;
-	v_flag = vm["output.V"].as<bool>();
-	i_flag = vm["output.I"].as<bool>();
-	ge_flag = vm["output.GE"].as<bool>();
-	gi_flag = vm["output.GI"].as<bool>();
-
-	// Create file-write objects;
-	FILEWRITE v_file(dir + "V.bin", "trunc");
-	FILEWRITE i_file(dir + "I.bin", "trunc");
-	FILEWRITE ge_file(dir + "GE.bin", "trunc");
-	FILEWRITE gi_file(dir + "GI.bin", "trunc");
-	// Initialize size parameter in files:
-	if (v_flag) v_file.SetSize(shape);
-	if (i_flag) i_file.SetSize(shape);
-	if (ge_flag) ge_file.SetSize(shape);
-	if (gi_flag) gi_file.SetSize(shape);
+	// prepare data file;
+	FILEWRITE file(dir + "data_network_test.bin", "trunc");
+	file.SetSize(shape);
+	ofstream ofile(dir + "data_network_raster.csv");
+	ofile.close();
 
 	finish = clock();
 	printf(">> Initialization : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
 	fflush(stdout);
 
 	start = clock();
-	int progress = 0;
-	while (t < tmax) {
-		net.UpdateNetworkState(t, dt);
-		t += dt;
-		// Output temporal data;
-		if (abs(recording_rate*t - floor(recording_rate*t)) == 0) {
-			if (v_flag) net.OutPotential(v_file);
-			if (i_flag) net.OutCurrent(i_file);
-			if (ge_flag) net.OutConductance(ge_file, true);
-			if (gi_flag) net.OutConductance(gi_file, false);
-		}
-		if (floor(t / tmax * 100) > progress) {
-			progress = floor(t / tmax * 100);
-			printf(">> Running ... %d%%\r", progress);
-			fflush(stdout);
-		}
-	}
-	finish = clock();
-
-	// delete files;
-	if (!v_flag) v_file.Remove();
-	if (!i_flag) i_file.Remove();
-	if (!ge_flag) ge_file.Remove();
-	if (!gi_flag) gi_file.Remove();
-	
-	cout << endl;
-	net.PrintCycle();
-	
-	// OUTPUTS:
-	net.SaveNeuronType(dir + "neuron_type.csv");
-	net.SaveConMat(dir + "mat.csv");
-
+	int spike_num;
 	vector<vector<double> > spike_trains;
-	int spike_num = net.OutSpikeTrains(spike_trains);
-	string raster_path = dir + "raster.csv";
-	Print2D(raster_path, spike_trains, "trunc");
-	cout << ">> Mean firing rate: " << (double)spike_num*1000.0/tmax/neuron_number << endl;
+	vector<double> add_spike_train;
+	// Start loop;
+	for (int i = 0; i < reps; i++) {
+		net.RestoreNeurons();
+		// Set driving_mode;
+		rand_gen.seed(vm["driving.seed"].as<int>());
+		net.InitializePoissonGenerator(vm);
 
-	// Timing:
-	printf(">> Simulation : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
+		while (t < tmax) {
+			net.UpdateNetworkState(t, dt);
+			t += dt;
+		}
+		net.OutPotential(file);
+		spike_num = net.OutSpikeTrains(spike_trains);
+		add_spike_train.clear();
+		// record the last spiking event;
+		for (int i = 0; i < spike_trains.size(); i ++) {
+			add_spike_train.insert(add_spike_train.end(), spike_trains[i].end() - 1, spike_trains[i].end());
+		}
+		Print1D(dir + "data_network_raster.csv", add_spike_train, "app", 0);
+		printf("[-] dt = %.2e s\tmean firing rate = %.2f Hz\n", dt, spike_num*1000.0/tmax/neuron_number);
+		t = 0;
+		dt /= 2;
+	}	
+	finish = clock();
+	printf(">> Total simulation : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);	
 	return 0;
 }
