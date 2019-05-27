@@ -355,15 +355,16 @@ void NeuronalNetwork::UpdateNetworkState(double t, double dt) {
 			}
 			newt = SortSpikes(dym_vals_new, update_list, fired_list, t, dt, T);
 		}
+		memcpy(dym_vals_.data(), dym_vals_new.data(), sizeof(double)*neuron_number_*dym_n_);
 		for (int i = 0; i < neuron_number_; i++) {
-			neurons_[i].CleanUsedInputs(GetPtr(dym_vals_, i), GetPtr(dym_vals_new, i), t + dt);
+			neurons_[i].CleanUsedInputs(t + dt);
 		}
 	} else {
 		vector<double> new_spikes;
 		for (int i = 0; i < neuron_number_; i++) {
 			neurons_[i].UpdateNeuronalState(GetPtr(dym_vals_, i), t, dt, ext_inputs_[i], new_spikes);
 			if ( !new_spikes.empty() ) neurons_[i].Fire(t, new_spikes);
-			neurons_[i].CleanUsedInputs(GetPtr(dym_vals_, i), GetPtr(dym_vals_, i), t + dt);
+			neurons_[i].CleanUsedInputs(t + dt);
 		}
 	}
 }
@@ -375,6 +376,7 @@ void NeuronalNetwork::PrintCycle() {
 	}
 	cout << endl;
 }
+
 void NeuronalNetwork::OutPotential(FILEWRITE& file) {
 	vector<double> potential(neuron_number_);
 	for (int i = 0; i < neuron_number_; i++) {

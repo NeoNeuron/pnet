@@ -91,9 +91,7 @@ double NeuronSim::UpdateNeuronalState(double *dym_val, double t, double dt, queu
 	return dym_val[p_neuron_->GetIDV()];
 }
 
-double NeuronSim::CleanUsedInputs(double *dym_val, double *dym_val_new, double tmax) {
-	// Update dym_val with dym_val_new;
-	memcpy(dym_val, dym_val_new, sizeof(double)*p_neuron_->GetDymNum());
+void NeuronSim::CleanUsedInputs(double tmax) {
 	// clean old synaptic driven;
 	if (!synaptic_driven_.empty()) {
 		int slen = synaptic_driven_.size();
@@ -103,7 +101,6 @@ double NeuronSim::CleanUsedInputs(double *dym_val, double *dym_val_new, double t
 		}
 		synaptic_driven_.erase(synaptic_driven_.begin(), synaptic_driven_.begin() + i);
 	}
-	return dym_val[p_neuron_->GetIDV()];
 }
 
 void NeuronSim::UpdateSource(double *dym_val, double t, double dt) {

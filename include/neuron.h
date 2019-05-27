@@ -495,9 +495,8 @@ class NeuronSim {
 		double UpdateNeuronalState(double *dym_val, double t, double dt, queue<Spike> & extPoisson, vector<double>& new_spikes);
 
 		// Clean used synaptic inputs:
-		// clean used synaptic inputs and update dym_val with dym_val_new;
 		// return the new v;
-		double CleanUsedInputs(double *dym_val, double * dym_val_new, double tmax);
+		void CleanUsedInputs(double tmax);
 
 		// Purely update conductances for fired neurons;
 		void UpdateSource(double *dym_val, double t, double dt);
