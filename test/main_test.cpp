@@ -9,6 +9,7 @@ using namespace std;
 
 mt19937 rand_gen(1);
 uniform_real_distribution<> rand_distribution(0.0, 1.0);
+size_t NEURON_INTERACTION_TIME = 0;
 
 int main(int argc, const char* argv[]) {
 	clock_t start, finish;
@@ -144,9 +145,11 @@ int main(int argc, const char* argv[]) {
 			add_spike_train.insert(add_spike_train.end(), spike_trains[i].end() - 1, spike_trains[i].end());
 		}
 		Print1D(dir + "data_network_raster.csv", add_spike_train, "app", 0);
-		printf("[-] dt = %.2e s\tmean firing rate = %.2f Hz\n", dt, spike_num*1000.0/tmax/neuron_number);
+		printf("[-] dt = %.2e s\tmean firing rate = %.2f Hz\n ", dt, spike_num*1000.0/tmax/neuron_number);
+		printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
 		t = 0;
 		dt /= 2;
+		NEURON_INTERACTION_TIME = 0;
 	}	
 	finish = clock();
 	printf(">> Total simulation : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);	

@@ -24,3 +24,6 @@ tmp/*
 
 # ignore folder config file
 .DS_Store
+
+# ignore INI-like config files
+*.ini

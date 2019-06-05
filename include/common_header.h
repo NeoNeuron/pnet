@@ -18,5 +18,6 @@
 
 extern std::mt19937 rand_gen;
 extern std::uniform_real_distribution<> rand_distribution;
+extern size_t NEURON_INTERACTION_TIME;
 
 #endif //_COMMON_HEADER_H_

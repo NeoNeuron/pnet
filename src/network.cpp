@@ -39,6 +39,7 @@ void NeuronalNetwork::InitializeConnectivity(po::variables_map &vm) {
 			}
 		}
 	} else if (connecting_mode == 1) {
+		// Based on directed network
 		int con_density = vm["network.dens"].as<int>();
 		for (int i = 0; i < neuron_number_; i++)  {
 			for (int j = 0; j < neuron_number_; j++) {
@@ -79,87 +80,84 @@ void NeuronalNetwork::InitializeConnectivity(po::variables_map &vm) {
 		cout << count << " rewirings." << endl;
 	} else if (connecting_mode == 2) {
 		double p_ee = vm["network.pee"].as<double>();
-		double p_ei = vm["network.pie"].as<double>();
-		double p_ie = vm["network.pei"].as<double>();
+		double p_ie = vm["network.pie"].as<double>();
+		double p_ei = vm["network.pei"].as<double>();
 		double p_ii = vm["network.pii"].as<double>();
 		double x;
+		int count = 0;
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
-				x = rand_distribution(rand_gen);
-				if (types_[i]) {
-					if (types_[j]) {
-						if (x <= p_ee) con_mat_[i][j] = true;
+				if (i != j) { // avoid self-connection
+					x = rand_distribution(rand_gen);
+					if (types_[i]) {
+						if (types_[j]) {
+							if (x <= p_ee) {
+								con_mat_[i][j] = true;
+								count ++;
+							}
+						} else {
+							if (x <= p_ei) {
+								con_mat_[i][j] = true;
+								count ++;
+							}
+						}
 					} else {
-						if (x <= p_ei) con_mat_[i][j] = true;
+						if (types_[j]) {
+							if (x <= p_ie) {
+								con_mat_[i][j] = true;
+								count ++;
+							}
+						} else {
+							if (x <= p_ii) {
+								con_mat_[i][j] = true;
+								count ++;
+							}
+						}
 					}
-				} else {
-					if (types_[j]) {
-						if (x <= p_ie) con_mat_[i][j] = true;
-					} else {
-						if (x <= p_ii) con_mat_[i][j] = true;
+					if (con_mat_[i][j]) {
+						if (!is_con_) is_con_ = true;
 					}
-				}
-				if (con_mat_[i][j]) {
-					if (!is_con_) is_con_ = true;
 				}
 			}
 		}
+		printf(">> Total connections : %d\n", count);
 	}
 }
 
 void NeuronalNetwork::InitializeSynapticStrength(po::variables_map &vm) {
 	int synaptic_mode = vm["synapse.mode"].as<int>();
+	typedef Eigen::Triplet<double> T;
+	vector<T> T_list;
 	if (synaptic_mode == 0) {
 		vector<vector<double> > s_vals;
 		Read2D(vm["synapse.file"].as<string>(), s_vals);
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
-				s_mat_[i][j] = s_vals[i][j];
+				if (s_vals[i][j] > 0) T_list.push_back(T(i,j,s_vals[i][j]));
 			}
 		}
 	} else if (synaptic_mode == 1) {
 		double s_ee = vm["synapse.see"].as<double>();
-		double s_ei = vm["synapse.sie"].as<double>();
-		double s_ie = vm["synapse.sei"].as<double>();
+		double s_ie = vm["synapse.sie"].as<double>();
+		double s_ei = vm["synapse.sei"].as<double>();
 		double s_ii = vm["synapse.sii"].as<double>();
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
-				if (types_[i]) {
-					if (types_[j]) s_mat_[i][j] = s_ee;
-					else s_mat_[i][j] = s_ei;
-				} else {
-					if (types_[j]) s_mat_[i][j] = s_ie;
-					else s_mat_[i][j] = s_ii;
+				if (con_mat_[i][j]) {
+					if (types_[i]) {
+						if (types_[j]) T_list.push_back(T(i,j,s_ee));
+						else T_list.push_back(T(i,j,s_ei));
+					} else {
+						if (types_[j]) T_list.push_back(T(i,j,s_ie));
+						else T_list.push_back(T(i,j,s_ii));
+					}
 				}
-			}
-		}
-	} else if (synaptic_mode == 2) {
-		double s_ee = vm["synapse.see"].as<double>();
-		double s_ei = vm["synapse.sie"].as<double>();
-		double s_ie = vm["synapse.sei"].as<double>();
-		double s_ii = vm["synapse.sii"].as<double>();
-		for (size_t i = 0; i < neuron_number_; i ++) {
-			for (size_t j = 0; j < neuron_number_; j ++) {
-				if (types_[i]) {
-					if (types_[j]) s_mat_[i][j] = s_ee;
-					else s_mat_[i][j] = s_ei;
-				} else {
-					if (types_[j]) s_mat_[i][j] = s_ie;
-					else s_mat_[i][j] = s_ii;
-				}
-			}
-		}
-		vector<vector<double> > coordinates;
-		Read2D(vm["space.file"].as<string>(), coordinates);
-		double meta_dis;
-		for (int i = 0; i < neuron_number_; i ++) {
-			for (int j = 0; j < i; j ++) {
-				meta_dis = 0.02 / pow(L2(coordinates[i], coordinates[j]), 2);
-				delay_mat_[i][j] *= meta_dis;
-				delay_mat_[j][i] *= meta_dis;
 			}
 		}
 	}
+	s_mat_.setFromTriplets(T_list.begin(), T_list.end());
+	s_mat_.makeCompressed();
+	printf("(number of connections in sparse-mat %d)\n", (int)s_mat_.nonZeros());
 }
 
 void NeuronalNetwork::InitializeSynapticDelay(po::variables_map &vm) {
@@ -272,14 +270,16 @@ void NeuronalNetwork::InitializePoissonGenerator(po::variables_map &vm) {
 		double pr = vm["driving.pr"].as<double>();
 		double ps = vm["driving.ps"].as<double>();
 		poisson_settings.resize(neuron_number_, vector<double>{pr, ps});
-	} else if (driving_mode == 1){
+	} else if (driving_mode == 1) {
 		// import the data file of feedforward driving rate:
 		Read2D(vm["driving.file"].as<string>(), poisson_settings);
 		if (poisson_settings.size() != neuron_number_) {
 			cout << "Error inputing length! (Not equal to the number of neurons in the net)";
 			return;
 		}
-	} else throw runtime_error("wrong driving_mode");
+	} else {
+		throw runtime_error("wrong driving_mode");
+	}
 
 	bool poisson_output = vm["output.poi"].as<bool>();
 	for (int i = 0; i < neuron_number_; i++) {
@@ -334,22 +334,18 @@ void NeuronalNetwork::UpdateNetworkState(double t, double dt) {
 			ADD_mutual.type = (T.front()).type;
 			// erase used spiking events;
 			T.erase(T.begin());
-			for (int j = 0; j < neuron_number_; j++) {
-				if (j == IND) {
-					neurons_[j].Fire(t, newt);
-				} else {
-					if (con_mat_[IND][j]) {
-						ADD_mutual.s = s_mat_[IND][j];
-						ADD_mutual.t = t + newt + delay_mat_[IND][j];
-						neurons_[j].InSpike(ADD_mutual);
-						update_list.push_back(j);
-						// Check whether this neuron appears in the firing list T;
-						for (int k = 0; k < T.size(); k ++) {
-							if (j == T[k].index) {
-								T.erase(T.begin() + k);
-								break;
-							}
-						}
+			neurons_[IND].Fire(t, newt);
+			for (ConMat::InnerIterator it(s_mat_, IND); it; ++it) {
+				ADD_mutual.s = it.value();
+				ADD_mutual.t = t + newt + delay_mat_[it.index()][IND];
+				neurons_[it.index()].InSpike(ADD_mutual);
+				NEURON_INTERACTION_TIME ++;
+				update_list.push_back(it.index());
+				// Check whether this neuron appears in the firing list T;
+				for (int k = 0; k < T.size(); k ++) {
+					if (it.index() == T[k].index) {
+						T.erase(T.begin() + k);
+						break;
 					}
 				}
 			}

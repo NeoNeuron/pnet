@@ -12,7 +12,8 @@
 #include "poisson_generator.h"
 #include "common_header.h"
 #include <boost/program_options.hpp>
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
 namespace po = boost::program_options;
 
 using namespace std;
@@ -26,6 +27,7 @@ struct SpikeElement {
 bool compSpikeElement(const SpikeElement &x, const SpikeElement &y);
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> DymVals; 
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor> ConMat; 
 
 inline double* GetPtr(DymVals &mat, int id) {
 	return mat.data() + id * mat.cols();
@@ -47,9 +49,9 @@ private:
 	vector<bool> types_; // vector to store types of neurons;
 
 	// Network Structure:
-	vector<vector<bool> > con_mat_; // built-in matrix for neuronal connectivity;
 	bool is_con_;
-	vector<vector<double> > s_mat_; // matrix of inter-neuronal interacting strength;
+	vector<vector<bool> > con_mat_; // built-in matrix for neuronal connectivity;
+	ConMat s_mat_; // matrix of inter-neuronal interacting strength;
 	vector<vector<double> > delay_mat_;
 
 	// Network Inputs:
@@ -84,7 +86,7 @@ public:
 		// Network structure:
 		con_mat_.resize(neuron_number_, vector<bool>(neuron_number_, false));
 		is_con_ = false;
-		s_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
+		s_mat_.resize(neuron_number_, neuron_number_);
 		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
 		ext_inputs_.resize(neuron_number_);
 	}

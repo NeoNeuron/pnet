@@ -10,6 +10,7 @@ using namespace std;
 
 mt19937 rand_gen(1);
 uniform_real_distribution<> rand_distribution(0.0, 1.0);
+size_t NEURON_INTERACTION_TIME = 0;
 
 //	Simulation program for single network system;
 //	
@@ -48,7 +49,7 @@ int main(int argc, const char* argv[]) {
 		("neuron.seed", po::value<int>()->default_value(0), "seed to generate types")
 		("neuron.file", po::value<string>(), "file of neuronal types")
 		// [synapse]
-		("synapse.mode", po::value<int>(), "distribution mode of synaptic strength:\n 0: external defined\n 1: fixed for specific pairs\n 2: fixed with spatial decay")
+		("synapse.mode", po::value<int>(), "distribution mode of synaptic strength:\n 0: external defined\n 1: fixed for specific pairs")
 		("synapse.file", po::value<string>(), "file of synaptic strength")
 		("synapse.see", po::value<double>(), "synaptic strength: exc -> exc")
 		("synapse.sie", po::value<double>(), "synaptic strength: exc -> inh")
@@ -150,7 +151,7 @@ int main(int argc, const char* argv[]) {
 	if (gi_flag) gi_file.SetSize(shape);
 
 	finish = clock();
-	printf(">> Initialization : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
+	printf(">> Initialization : \t%3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
 	fflush(stdout);
 
 	start = clock();
@@ -179,10 +180,14 @@ int main(int argc, const char* argv[]) {
 	if (!ge_flag) ge_file.Remove();
 	if (!gi_flag) gi_file.Remove();
 	
-	cout << endl;
-	net.PrintCycle();
+	printf(">> Done!             \n");
+	//net.PrintCycle();
 	
+	printf(">> Simulation : \t%3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
+	
+	printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
 	// OUTPUTS:
+	start = clock();
 	net.SaveNeuronType(dir + "neuron_type.csv");
 	net.SaveConMat(dir + "mat.csv");
 
@@ -190,9 +195,10 @@ int main(int argc, const char* argv[]) {
 	int spike_num = net.OutSpikeTrains(spike_trains);
 	string raster_path = dir + "raster.csv";
 	Print2D(raster_path, spike_trains, "trunc");
-	cout << ">> Mean firing rate: " << (double)spike_num*1000.0/tmax/neuron_number << endl;
+	printf(">> Mean firing rate: %3.3f Hz\n", spike_num*1000.0/tmax/neuron_number);
+	finish = clock();
 
 	// Timing:
-	printf(">> Simulation : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
+	printf(">> Saving outputs : \t%3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
 	return 0;
 }

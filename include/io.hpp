@@ -137,16 +137,30 @@ template <class T> void Print2D(string path, vector<vector<T> >& data, string mo
   ofstream ofile;
   if (mode == "app") ofile.open(path.c_str(), ios::app);
   else if (mode == "trunc") ofile.open(path.c_str());
-  ostringstream s_out;
+  //ostringstream s_out;
   for (typename vector<vector<T> >::iterator it = data.begin(); it != data.end(); it++) {
-    s_out.str("");
+    //s_out.str("");
     for (typename vector<T>::iterator itt = it->begin(); itt != it->end(); itt++) {
-      s_out << setprecision(15) << *itt << ',';
+      //s_out << setprecision(15) << *itt << ',';
+      ofile << setprecision(15) << *itt << ',';
     }
-    s_out << '\n';
-    ofile << s_out.str();
+    //s_out << '\n';
+    //ofile << s_out.str();
+    ofile << '\n';
   }
   ofile.close();
+	// C-style code
+	// FILE *fout;
+  // if (mode == "app") fout = fopen(path.c_str(), "a");
+	// else if (mode == "trunc") fout = fopen(path.c_str(), "w");
+  // for (size_t ii = 0; ii < data.size(); ii++) {
+	// 	const auto &v = data[ii];
+  //   for (size_t jj = 0; jj < v.size(); jj++) {
+	// 		fprintf(fout, "%.15f,", v[jj]);
+  //   }
+	// 	fprintf(fout, "\n");
+  // }
+	// fclose(fout);
 }
 
 template <class T> void Print2DBin(string path, vector<vector<T> >& data, string mode) {

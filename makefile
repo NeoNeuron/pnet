@@ -1,5 +1,5 @@
 # define compiler and path of libs
-CPPFLAGS = --std=c++11 -Wall -I $(DIR_INC)
+CPPFLAGS = --std=c++11 -Wall -I $(DIR_INC) -I $(PATH_TO_EIGEN)
 CXXFLAGS = -g -O2
 LDLIBS = -lboost_program_options
 # define variable path
@@ -9,6 +9,7 @@ DIR_BIN = bin
 DIR_OBJ = obj
 DIR_DEP = dep
 DIR_TEST = test
+PATH_TO_EIGEN = /usr/local/Cellar/eigen/3.3.7/include/eigen3/
 DIRS = $(DIR_BIN) $(DIR_DEP) $(DIR_OBJ)
 vpath %.cpp $(DIR_SRC)
 vpath %.cpp $(DIR_TEST)
