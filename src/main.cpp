@@ -24,8 +24,9 @@ int main(int argc, const char* argv[]) {
 	// Config program options:
 	po::options_description desc("All Options");
 	desc.add_options()
-		("help", "produce help message")
-		("config_file,c", po::value<string>(), "config file")
+		("help,h", "produce help message")
+		("config", "detailed message for config file")
+		("config-file,c", po::value<string>(), "config file")
 		("prefix", po::value<string>()->default_value("./"), "prefix of output files")
 		;
 	po::options_description config("Configs");
@@ -83,6 +84,9 @@ int main(int argc, const char* argv[]) {
 	po::notify(vm);
 	if (vm.count("help")) {
 		cout << desc << '\n';
+		return 1;
+	}
+	if (vm.count("config")) {
 		cout << config << '\n';
 		return 1;
 	}
@@ -92,10 +96,10 @@ int main(int argc, const char* argv[]) {
 
 	// Loading config.ini:
 	ifstream config_file;
-	if (vm.count("config_file")) {
-		config_file.open(vm["config_file"].as<string>().c_str());
+	if (vm.count("config-file")) {
+		config_file.open(vm["config-file"].as<string>().c_str());
 	} else {
-		cout << "lack of config_file\n";
+		cout << "lack of config file\n";
 		return -1;
 	}
 	po::store(po::parse_config_file(config_file, config), vm);
@@ -162,7 +166,7 @@ int main(int argc, const char* argv[]) {
 		// Output temporal data;
 		if (abs(recording_rate*t - floor(recording_rate*t)) == 0) {
 			if (v_flag) net.OutPotential(v_file);
-			if (i_flag) net.OutCurrent(i_file);
+			//if (i_flag) net.OutCurrent(i_file);
 			if (ge_flag) net.OutConductance(ge_file, true);
 			if (gi_flag) net.OutConductance(gi_file, false);
 		}

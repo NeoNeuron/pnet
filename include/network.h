@@ -20,11 +20,11 @@ using namespace std;
 
 struct SpikeElement {
 	int index;	// The sequence order of spikes within single time interval;
-	double t;	// exact spiking time;
+	double t;		// exact spiking time;
 	bool type;	// The type of neuron that fired;
 };
 
-bool compSpikeElement(const SpikeElement &x, const SpikeElement &y);
+//bool compSpikeElement(const SpikeElement &x, const SpikeElement &y);
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> DymVals; 
 typedef Eigen::SparseMatrix<double, Eigen::ColMajor> ConMat; 
@@ -36,7 +36,7 @@ inline double* GetPtr(DymVals &mat, int id) {
 class NeuronalNetwork {
 private:
 	// Neuron Simulators:
-	vector<NeuronSim> neurons_;
+	NeuronSimulatorBase *neuron_sim_ = NULL;
 	int dym_n_;
 	
 	// PoissonGenerators:
@@ -57,6 +57,10 @@ private:
 	// Network Inputs:
 	vector<queue<Spike> > ext_inputs_; // temp storage of external Poisson input;
 
+	// Network data:
+	vector<vector<Spike> > synaptic_drivens_;
+	vector<vector<double> > spike_trains_;
+
 
 	// Functions:
 	//
@@ -71,15 +75,21 @@ public:
 	NeuronalNetwork(string neuron_type, int neuron_number) {
 		// Network Parameters:
 		neuron_number_ = neuron_number;
-		neurons_.resize(neuron_number_, NeuronSim(neuron_type));
-		if (neuron_type == "LIF_GH") {
-			dym_n_ = 6;
-		} else {
+		if (neuron_type == "LIF_G") {
+			neuron_sim_ = new Sim_LIF_G();
 			dym_n_ = 4;
+		} else if (neuron_type == "LIF_GH") {
+			neuron_sim_ = new Sim_LIF_GH();
+			dym_n_ = 6;
+		} else if (neuron_type == "LIF_I") {
+			neuron_sim_ = new Sim_LIF_I();
+			dym_n_ = 4;
+		} else {
+			throw runtime_error("ERROR: wrong neuron type");
 		}
 		dym_vals_.resize(neuron_number_, dym_n_);
 		for (int i = 0; i < neuron_number_; i++) {
-			neurons_[i].SetDefaultDymVal(GetPtr(dym_vals_, i));
+			neuron_sim_->GetDefaultDymVal(GetPtr(dym_vals_, i));
 		}
 		pgs_.resize(neuron_number_);
 		types_.resize(neuron_number_, false);
@@ -89,6 +99,8 @@ public:
 		s_mat_.resize(neuron_number_, neuron_number_);
 		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
 		ext_inputs_.resize(neuron_number_);
+		synaptic_drivens_.resize(neuron_number_);
+		spike_trains_.resize(neuron_number_);
 	}
 	
 	~NeuronalNetwork() {  }
@@ -120,7 +132,7 @@ public:
 	void InitializePoissonGenerator(po::variables_map &vm);
 
 	// 	Input new spikes for neurons all together;
-	void InNewSpikes(vector<vector<Spike> > &data);
+	//void InNewSpikes(vector<vector<Spike> > &data);
 
 	// DYNAMICS:
 
@@ -156,7 +168,7 @@ public:
 	int OutSpikeTrains(vector<vector<double> >& spike_trains);
 
   //  Output spikes before t, including their functions;
-	void GetNewSpikes(double t, vector<vector<Spike> >& data);
+	//void GetNewSpikes(double t, vector<vector<Spike> >& data);
 
 	int GetNeuronNumber();
 
