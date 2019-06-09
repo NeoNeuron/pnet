@@ -110,7 +110,7 @@ int main(int argc, const char* argv[]) {
 	// Network initialization
 	//
 	int neuron_number = vm["network.size"].as<int>();
-	NeuronalNetwork net(vm["neuron.model"].as<string>(), neuron_number);
+	NeuronPopulation net(vm["neuron.model"].as<string>(), neuron_number);
 	// initialize the network;
 	rand_gen.seed(vm["neuron.seed"].as<int>());
 	net.InitializeNeuronalType(vm);
@@ -158,15 +158,16 @@ int main(int argc, const char* argv[]) {
 	printf(">> Initialization : \t%3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
 	fflush(stdout);
 
+	NeuronalNetwork net_sim;
 	start = clock();
 	int progress = 0;
 	while (t < tmax) {
-		net.UpdateNetworkState(t, dt);
+		net_sim.UpdateNetworkState(&net, t, dt);
 		t += dt;
 		// Output temporal data;
 		if (abs(recording_rate*t - floor(recording_rate*t)) == 0) {
 			if (v_flag) net.OutPotential(v_file);
-			//if (i_flag) net.OutCurrent(i_file);
+			if (i_flag) net.OutCurrent(i_file);
 			if (ge_flag) net.OutConductance(ge_file, true);
 			if (gi_flag) net.OutConductance(gi_file, false);
 		}

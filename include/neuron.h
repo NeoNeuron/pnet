@@ -51,7 +51,7 @@ class NeuronBase {
 		virtual void ManuallyFire(double* dym_val) const = 0;
 		virtual double DymCore(double *dym_val, double dt) const = 0;
 		virtual void UpdateSource(double *dym_val, double dt) const = 0;
-		virtual void SetDefaultDymVal(double *dym_val) const = 0;
+		virtual void GetDefaultDymVal(double *dym_val) const = 0;
 		virtual ~NeuronBase() {  }
 };
 
@@ -75,7 +75,7 @@ class LIF_G_Model {
 
 		// indices of dynamical variables
 		static const int dym_n_ = 4;
-		static const int id_v_ = 0;
+		static const int id_v_	= 0;
 		static const int id_gE_ = 1;
 		static const int id_gI_ = 2;
 		static const int id_tr_ = 3;
@@ -83,7 +83,7 @@ class LIF_G_Model {
 		static const int id_gI_inject_ = id_gI_;
 		// index of remaining refractory period time. if negative, remaining refractory period equals to zero;
 		void GetDefaultDymVal(double* dym_val) const {
-			dym_val[id_v_] = 0.0;
+			dym_val[id_v_]  = 0.0;
 			dym_val[id_gE_] = 0.0;
 			dym_val[id_gI_] = 0.0;
 			dym_val[id_tr_] = -1;
@@ -162,18 +162,18 @@ class LIF_GH_Model {
 		double const_I = 0.0;
 
 		// excitatory and inhibitory conductance; evolve precisely with the given expression;
-		static const int dym_n_   = 6;
-		static const int id_v_   = 0;
-		static const int id_gE_  = 1;
-		static const int id_gI_  = 2;
+		static const int dym_n_ = 6;
+		static const int id_v_  = 0;
+		static const int id_gE_ = 1;
+		static const int id_gI_ = 2;
 		static const int id_hE_ = 3;
 		static const int id_hI_ = 4;
-		static const int id_tr_  = 5;
+		static const int id_tr_ = 5;
 		static const int id_gE_inject_ = id_hE_;
 		static const int id_gI_inject_ = id_hI_;
 		// index of remaining refractory period time. if negative, remaining refractory period equals to zero;
 		void GetDefaultDymVal(double* dym_val) const {
-			dym_val[id_v_] = 0.0;
+			dym_val[id_v_]  = 0.0;
 			dym_val[id_gE_] = 0.0;
 			dym_val[id_gI_] = 0.0;
 			dym_val[id_hE_] = 0.0;
@@ -277,7 +277,7 @@ class LIF_I_Model {
 
 		// excitatory and inhibitory conductance; evolve precisely with the given expression;
 		static const int dym_n_ = 4;
-		static const int id_v_ = 0;
+		static const int id_v_  = 0;
 		static const int id_gE_ = 1;
 		static const int id_gI_ = 2;
 		static const int id_tr_ = 3;
@@ -285,7 +285,7 @@ class LIF_I_Model {
 		static const int id_gI_inject_ = id_gI_;
 		// index of remaining refractory period time. if negative, remaining refractory period equals to zero;
 		void GetDefaultDymVal(double* dym_val) const {
-			dym_val[id_v_] = 0.0;
+			dym_val[id_v_]  = 0.0;
 			dym_val[id_gE_] = 0.0;
 			dym_val[id_gI_] = 0.0;
 			dym_val[id_tr_] = -1;
@@ -436,7 +436,7 @@ class Neuron_LIF: public NeuronModel, public NeuronBase {
 		//	return: none;
 		void UpdateSource(double *dym_val, double dt) const override { UpdateG(dym_val, dt); }
 
-		void SetDefaultDymVal(double* dym_val) const override {
+		void GetDefaultDymVal(double* dym_val) const override {
 			NeuronModel::GetDefaultDymVal(dym_val);
 		}
 };
@@ -448,84 +448,46 @@ typedef Neuron_LIF<LIF_I_Model> LIF_I;
 // Baes class of neuronal simulator
 class NeuronSimulatorBase {
 	public:
+		virtual int GetDymNum() const = 0; 
+		virtual int GetIDV() const = 0;
+		virtual int GetIDGE() const = 0; 
+		virtual int GetIDGI() const = 0; 
 		virtual void SetRef(double t_ref) = 0;
 		virtual void SetConstDrive(double const_I) = 0;
-		virtual void Reset(double *dym_val, vector<Spike> &synaptic_driven) const = 0;
 		virtual void GetDefaultDymVal(double *dym_val) const = 0;
-		virtual void InputExternalPoisson(queue<Spike> &x, vector<Spike> &synaptic_driven, double tmax) const = 0;
-		virtual void InSpike(vector<Spike> &synaptic_driven, Spike x) const = 0;
-		virtual double UpdateNeuronalState(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt, queue<Spike> & extPoisson, vector<double>& new_spikes) const = 0;
-		virtual void CleanUsedInputs(vector<Spike> &synaptic_driven, double tmax) const = 0;
+		virtual double GetCurrent(double* dym_val) const = 0;
+		virtual double UpdateNeuronalState(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt, vector<double>& new_spikes) const = 0;
 		virtual void UpdateConductance(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt) const = 0;
-		virtual void Fire(vector<double> &spike_train, double t, double spike_time) const = 0;
-		virtual void Fire(vector<double> &spike_train, double t, vector<double>& spike_times) const = 0;
 		virtual ~NeuronSimulatorBase() {  }
 };
-
 
 // NeuronSimulator: Based on integrate and fire neuron model;
 template <class Neuron>
 class NeuronSimulator : public Neuron, public NeuronSimulatorBase {
 	using Neuron::GetIDGEInject;
 	using Neuron::GetIDGIInject;
-	using Neuron::GetIDV;
 	using Neuron::DymCore;
 	using Neuron::UpdateSource;
 	public:
+		int GetDymNum() const override { return Neuron::GetDymNum(); }
+		int GetIDV() const override { return Neuron::GetIDV(); }
+		int GetIDGE() const override { return Neuron::GetIDGE(); }
+		int GetIDGI() const override { return Neuron::GetIDGI(); }
 		void SetRef(double t_ref) override { Neuron::SetRefTime(t_ref); }
 		void SetConstDrive(double const_I) override { Neuron::SetConstCurrent(const_I); }
-		void GetDefaultDymVal(double *dym_val) const override { Neuron::SetDefaultDymVal(dym_val); }
-		// Input external Poisson sequence within each time step, autosort after generatation if synaptic delay is nonzero;
-		// Synaptic input received by neuron, including feedforward and interneuronal spikes;
-		// tmax: maximum time of Poisson sequence;
-		// x: container of external inputing spikes;
-		// return: none;
-		void InputExternalPoisson(queue<Spike> &x, vector<Spike> &synaptic_driven, double tmax) const override {
-			if ( !x.empty() ) {
-				while ( x.front().t < tmax ) {
-					synaptic_driven.push_back( x.front() );
-					x.pop();
-					if ( x.empty() ) break;
-				}
-				sort(synaptic_driven.begin(), synaptic_driven.end(), compSpike);
-			}
-		}
-
-		//	Input synaptic inputs, either feedforward or interneuronal ones, autosort after insertion;
-		void InSpike(vector<Spike> &synaptic_driven, Spike x) const override {
-			if (synaptic_driven.empty()) {
-				synaptic_driven.push_back(x);
-			} else {
-				if (synaptic_driven.back().t < x.t) {
-					synaptic_driven.push_back(x);
-				} else {
-					synaptic_driven.push_back(x);
-					sort(synaptic_driven.begin(), synaptic_driven.end(), compSpike);
-				}
-			}
-		}
-		// Reset neuron into the condition at zero time point;
-		void Reset(double *dym_val, vector<Spike> &synaptic_driven) const override {
-			synaptic_driven.clear();
-			// reset dynamic variables;
-			Neuron::GetDefaultDymVal(dym_val);
-		}
-
-		// DYNAMICS:
-
+		void GetDefaultDymVal(double *dym_val) const override { Neuron::GetDefaultDymVal(dym_val); }
+		double GetCurrent(double* dym_val) const override { Neuron::GetCurrent(dym_val); }
 		// 	Update neuronal state:
 		//	Description: update neuron within single time step, including its membrane potential, conductances and counter of refractory period;
 		//	dym_val: dynamic variables;
 		//	synaptic_driven: synaptic drivens;
 		//	double t: time point of the begining of the time step;
 		//	double dt: size of time step;
-		//	queue<Spike> extPoisson: external Poisson sequence;
 		//	vector<double> new_spikes: new spikes generated during dt;
 		//	Return: membrane potential at t = t + dt;
-		double UpdateNeuronalState(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt, queue<Spike>& extPoisson, vector<double>& new_spikes) const override {
+		double UpdateNeuronalState(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt, vector<double>& new_spikes) const override {
 			new_spikes.clear();
 			double tmax = t + dt;
-			InputExternalPoisson(extPoisson, synaptic_driven, tmax);
 			double t_spike;
 			vector<Spike>::iterator s_begin = synaptic_driven.begin();
 			if (s_begin == synaptic_driven.end() || tmax <= s_begin->t) {
@@ -554,20 +516,7 @@ class NeuronSimulator : public Neuron, public NeuronSimulatorBase {
 					}
 				}
 			}
-			return dym_val[GetIDV()];
-		}
-
-		// Clean used synaptic inputs:
-		void CleanUsedInputs(vector<Spike> &synaptic_driven, double tmax) const override {
-			// clean old synaptic driven;
-			if (!synaptic_driven.empty()) {
-				int slen = synaptic_driven.size();
-				int i = 0;
-				for (; i < slen; i ++) {
-					if (synaptic_driven[i].t >= tmax) break;
-				}
-				synaptic_driven.erase(synaptic_driven.begin(), synaptic_driven.begin() + i);
-			}
+			return dym_val[Neuron::GetIDV()];
 		}
 
 		// Purely update conductances for fired neurons;
@@ -589,16 +538,6 @@ class NeuronSimulator : public Neuron, public NeuronSimulatorBase {
 						UpdateSource(dym_val, (iter + 1)->t - iter->t);
 					}
 				}
-			}
-		}
-
-		//	Fire: update neuronal state for neurons which fire at t = t + dt;
-		void Fire(vector<double> &spike_train, double t, double spike_time) const override {
-				spike_train.push_back(t + spike_time);
-		}
-		void Fire(vector<double> &spike_train, double t, vector<double>& spike_times) const override {
-			for (vector<double>::iterator it = spike_times.begin(); it != spike_times.end(); it ++) {
-				spike_train.push_back(t + *it);
 			}
 		}
 };

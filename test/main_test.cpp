@@ -90,7 +90,7 @@ int main(int argc, const char* argv[]) {
 	// Network initialization
 	//
 	int neuron_number = vm["network.size"].as<int>();
-	NeuronalNetwork net(vm["neuron.model"].as<string>(), neuron_number);
+	NeuronPopulation net(vm["neuron.model"].as<string>(), neuron_number);
 	// initialize the network;
 	rand_gen.seed(vm["neuron.seed"].as<int>());
 	net.InitializeNeuronalType(vm);
@@ -122,6 +122,7 @@ int main(int argc, const char* argv[]) {
 	printf(">> Initialization : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
 	fflush(stdout);
 
+	NeuronalNetwork net_sim;
 	start = clock();
 	int spike_num;
 	vector<vector<double> > spike_trains;
@@ -134,7 +135,7 @@ int main(int argc, const char* argv[]) {
 		net.InitializePoissonGenerator(vm);
 
 		while (t < tmax) {
-			net.UpdateNetworkState(t, dt);
+			net_sim.UpdateNetworkState(&net, t, dt);
 			t += dt;
 		}
 		net.OutPotential(file);
