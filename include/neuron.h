@@ -476,7 +476,7 @@ class NeuronSimulator : public Neuron, public NeuronSimulatorBase {
 		void SetRef(double t_ref) override { Neuron::SetRefTime(t_ref); }
 		void SetConstDrive(double const_I) override { Neuron::SetConstCurrent(const_I); }
 		void GetDefaultDymVal(double *dym_val) const override { Neuron::GetDefaultDymVal(dym_val); }
-		double GetCurrent(double* dym_val) const override { Neuron::GetCurrent(dym_val); }
+		double GetCurrent(double* dym_val) const override { return Neuron::GetCurrent(dym_val); }
 		// 	Update neuronal state:
 		//	Description: update neuron within single time step, including its membrane potential, conductances and counter of refractory period;
 		//	dym_val: dynamic variables;
