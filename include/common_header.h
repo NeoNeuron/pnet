@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <cstdio>
 #include <stdexcept>
+#include <omp.h>
 
 extern std::mt19937 rand_gen;
 extern std::uniform_real_distribution<> rand_distribution;

@@ -91,10 +91,11 @@ void NeuronalNetwork::UpdateNetworkState(NeuronPopulation *neuron_pop, double t,
 		memcpy(neuron_pop->dym_vals_.data(), dym_vals_new.data(), sizeof(double)*neuron_pop->neuron_number_*neuron_pop->dym_n_);
 		neuron_pop->CleanUsedInputs(t + dt);
 	} else {
-		vector<double> new_spikes;
+		vector<vector<double> > new_spikes(neuron_pop->neuron_number_);
+		#pragma omp parallel for
 		for (int i = 0; i < neuron_pop->neuron_number_; i++) {
-			neuron_pop->neuron_sim_->UpdateNeuronalState(GetPtr(neuron_pop->dym_vals_, i), neuron_pop->synaptic_drivens_[i], t, dt, new_spikes);
-			if ( !new_spikes.empty() ) neuron_pop->NewSpike(i, t, new_spikes);
+			neuron_pop->neuron_sim_->UpdateNeuronalState(GetPtr(neuron_pop->dym_vals_, i), neuron_pop->synaptic_drivens_[i], t, dt, new_spikes[i]);
+			if ( !new_spikes[i].empty() ) neuron_pop->NewSpike(i, t, new_spikes[i]);
 		}
 		neuron_pop->CleanUsedInputs(t + dt);
 	}

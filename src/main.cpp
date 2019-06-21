@@ -5,6 +5,7 @@
 //	Description: program for point-neuronal-network simulation;
 //*************************
 
+#include <chrono>
 #include "network.h"
 using namespace std;
 
@@ -19,8 +20,7 @@ size_t NEURON_INTERACTION_TIME = 0;
 //	argv[2] = Output directory for neural data;
 //
 int main(int argc, const char* argv[]) {
-	clock_t start, finish;
-	start = clock();
+	auto start = chrono::system_clock::now();
 	// Config program options:
 	po::options_description desc("All Options");
 	desc.add_options()
@@ -154,12 +154,13 @@ int main(int argc, const char* argv[]) {
 	if (ge_flag) ge_file.SetSize(shape);
 	if (gi_flag) gi_file.SetSize(shape);
 
-	finish = clock();
-	printf(">> Initialization : \t%3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
+	auto finish = chrono::system_clock::now();
+	chrono::duration<double> elapsed_seconds = finish-start;
+	printf(">> Initialization : \t%3.3f s\n", elapsed_seconds.count());
 	fflush(stdout);
 
 	NeuronalNetwork net_sim;
-	start = clock();
+	start = chrono::system_clock::now();
 	int progress = 0;
 	while (t < tmax) {
 		net_sim.UpdateNetworkState(&net, t, dt);
@@ -177,7 +178,7 @@ int main(int argc, const char* argv[]) {
 			fflush(stdout);
 		}
 	}
-	finish = clock();
+	finish = chrono::system_clock::now();
 
 	// delete files;
 	if (!v_flag) v_file.Remove();
@@ -188,22 +189,24 @@ int main(int argc, const char* argv[]) {
 	printf(">> Done!             \n");
 	//net.PrintCycle();
 	
-	printf(">> Simulation : \t%3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
+	elapsed_seconds = finish-start;
+	printf(">> Simulation : \t%3.3f s\n", elapsed_seconds.count());
 	
 	printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
 	// OUTPUTS:
-	start = clock();
+	start = chrono::system_clock::now();
 	net.SaveNeuronType(dir + "neuron_type.csv");
-	net.SaveConMat(dir + "mat.csv");
+	//net.SaveConMat(dir + "mat.csv");
 
 	vector<vector<double> > spike_trains;
 	int spike_num = net.OutSpikeTrains(spike_trains);
 	string raster_path = dir + "raster.csv";
 	Print2D(raster_path, spike_trains, "trunc");
 	printf(">> Mean firing rate: %3.3f Hz\n", spike_num*1000.0/tmax/neuron_number);
-	finish = clock();
+	finish = chrono::system_clock::now();
 
 	// Timing:
-	printf(">> Saving outputs : \t%3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
+	elapsed_seconds = finish-start;
+	printf(">> Saving outputs : \t%3.3f s\n", elapsed_seconds.count());
 	return 0;
 }

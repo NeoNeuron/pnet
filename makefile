@@ -1,6 +1,8 @@
 # define compiler and path of libs
+#CPPFLAGS = --std=c++11 -Wall -I $(DIR_INC) -I $(PATH_TO_EIGEN) -Xpreprocessor -fopenmp 
 CPPFLAGS = --std=c++11 -Wall -I $(DIR_INC) -I $(PATH_TO_EIGEN)
 CXXFLAGS = -g -O2
+#LDLIBS = -lboost_program_options -lomp
 LDLIBS = -lboost_program_options
 # define variable path
 DIR_SRC = src
