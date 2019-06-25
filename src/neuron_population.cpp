@@ -23,7 +23,7 @@ void NeuronPopulation::InitializeConnectivity(po::variables_map &vm) {
 	int connecting_mode = vm["network.mode"].as<int>();
 	if (connecting_mode == 0) { // External connectivity matrix;
 		vector<vector<int> > connecting_matrix;
-		Read2D(vm["network.file"].as<string>(), connecting_matrix);
+		Read2D(vm["prefix"].as<string>() + vm["network.file"].as<string>(), connecting_matrix);
 		if (connecting_matrix.size() != neuron_number_ || connecting_matrix[0].size() != neuron_number_) {
 			throw runtime_error("wrong size of connectivity matrix");
 		} else {
@@ -128,7 +128,7 @@ void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
 	vector<T> T_list;
 	if (synaptic_mode == 0) {
 		vector<vector<double> > s_vals;
-		Read2D(vm["synapse.file"].as<string>(), s_vals);
+		Read2D(vm["prefix"].as<string>() + vm["synapse.file"].as<string>(), s_vals);
 		for (size_t i = 0; i < neuron_number_; i ++) {
 			for (size_t j = 0; j < neuron_number_; j ++) {
 				if (s_vals[i][j] > 0) T_list.push_back(T(i,j,s_vals[i][j]));
@@ -161,12 +161,12 @@ void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
 void NeuronPopulation::InitializeSynapticDelay(po::variables_map &vm) {
 	int space_mode = vm["space.mode"].as<int>();
 	if (space_mode == 0) {
+		vector<vector<double> > coordinates;
+		Read2D(vm["prefix"].as<string>() + vm["space.file"].as<string>(), coordinates);
+		SetDelay(coordinates, vm["space.speed"].as<double>());
+	} else if (space_mode == 1) {
 		delay_mat_.clear();
 		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, vm["space.delay"].as<double>()));
-	} else if (space_mode == 1) {
-		vector<vector<double> > coordinates;
-		Read2D(vm["space.file"].as<string>(), coordinates);
-		SetDelay(coordinates, vm["space.speed"].as<double>());
 	} else if (space_mode == -1) {
 		delay_mat_.clear();
 		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
@@ -193,22 +193,22 @@ void NeuronPopulation::InitializeNeuronalType(po::variables_map &vm) {
 	double p = vm["neuron.p"].as<double>();
 	int neuron_mode = vm["neuron.mode"].as<int>();
 	if (neuron_mode == 0) {
-		counter = floor(neuron_number_*p);
-		for (int i = 0; i < counter; i++) types_[i] = true;
-	} else if (neuron_mode == 1) {
-		double x = 0;
-		for (int i = 0; i < neuron_number_; i++) {
-			x = rand_distribution(rand_gen);
-			if (x < p) {
+		vector<int> type_seq;
+		Read1D(vm["prefix"].as<string>() + vm["neuron.file"].as<string>(), type_seq, 0, 1);
+		for (int i = 0; i < neuron_number_; i ++) {
+			if ( type_seq[i] ) {
 				types_[i] = true;
 				counter++;
 			}
 		}
+	} else if (neuron_mode == 1) {
+		counter = floor(neuron_number_*p);
+		for (int i = 0; i < counter; i++) types_[i] = true;
 	} else if (neuron_mode == 2) {
-		vector<int> type_seq;
-		Read1D(vm["neuron.file"].as<string>(), type_seq, 0, 0);
-		for (int i = 0; i < neuron_number_; i ++) {
-			if ( type_seq[i] ) {
+		double x = 0;
+		for (int i = 0; i < neuron_number_; i++) {
+			x = rand_distribution(rand_gen);
+			if (x < p) {
 				types_[i] = true;
 				counter++;
 			}
@@ -224,16 +224,16 @@ void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
 	//		[:,1] excitatory Poisson strength;
 	int driving_mode = vm["driving.mode"].as<int>();
 	if (driving_mode == 0) {
-		double pr = vm["driving.pr"].as<double>();
-		double ps = vm["driving.ps"].as<double>();
-		poisson_settings.resize(neuron_number_, vector<double>{pr, ps});
-	} else if (driving_mode == 1) {
 		// import the data file of feedforward driving rate:
-		Read2D(vm["driving.file"].as<string>(), poisson_settings);
+		Read2D(vm["prefix"].as<string>() + vm["driving.file"].as<string>(), poisson_settings);
 		if (poisson_settings.size() != neuron_number_) {
 			cout << "Error inputing length! (Not equal to the number of neurons in the net)";
 			return;
 		}
+	} else if (driving_mode == 1) {
+		double pr = vm["driving.pr"].as<double>();
+		double ps = vm["driving.ps"].as<double>();
+		poisson_settings.resize(neuron_number_, vector<double>{pr, ps});
 	} else {
 		throw runtime_error("wrong driving_mode");
 	}

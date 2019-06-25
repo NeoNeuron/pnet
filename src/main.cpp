@@ -45,7 +45,7 @@ int main(int argc, const char* argv[]) {
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
 		("neuron.tref", po::value<double>(), "refractory period") 
-		("neuron.mode", po::value<int>(), "distribution mode of neuronal types:\n 0: sequential,\n 1: random,\n 2: external defined;")
+		("neuron.mode", po::value<int>(), "distribution mode of neuronal types:\n 0: external defined,\n 1: sequential,\n 2: random;")
 		("neuron.p", po::value<double>(), "probability of excitatory neurons")
 		("neuron.seed", po::value<int>()->default_value(0), "seed to generate types")
 		("neuron.file", po::value<string>(), "file of neuronal types")
@@ -57,12 +57,12 @@ int main(int argc, const char* argv[]) {
 		("synapse.sei", po::value<double>(), "synaptic strength: inh -> exc")
 		("synapse.sii", po::value<double>(), "synaptic strength: inh -> inh")
 		// [space]
-		("space.mode", po::value<int>()->default_value(-1), "delay mode:\n0: homogeneous delay\n1: distance-dependent delay\n-1: no delay")
+		("space.mode", po::value<int>()->default_value(-1), "delay mode:\n0: external defined distance-dependent delay\n1: homogeneous delay\n-1: no delay")
 		("space.delay", po::value<double>()->default_value(0.0), "synaptic delay time")
 		("space.speed", po::value<double>(), "transmitting speed of spikes")	
 		("space.file", po::value<string>(), "file of spatial location of neurons")
 		// [driving]
-		("driving.mode", po::value<int>(), "driving mode:\n0: homogeneous Poisson\n1: Poisson with external defined settings")
+		("driving.mode", po::value<int>(), "driving mode:\n0: Poisson with external defined settings\n1: homogeneous Poisson")
 		("driving.pr", po::value<double>(), "Poisson rate")
 		("driving.ps", po::value<double>(), "Poisson strength")
 		("driving.file", po::value<string>(), "file of Poisson settings")
@@ -195,7 +195,7 @@ int main(int argc, const char* argv[]) {
 	printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
 	// OUTPUTS:
 	start = chrono::system_clock::now();
-	net.SaveNeuronType(dir + "neuron_type.csv");
+	//net.SaveNeuronType(dir + "neuron_type.csv");
 	//net.SaveConMat(dir + "mat.csv");
 
 	vector<vector<double> > spike_trains;

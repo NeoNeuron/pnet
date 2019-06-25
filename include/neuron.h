@@ -190,7 +190,7 @@ class LIF_GH_Model {
 		//		g' = -1/td * g + h
 		//		h' = -1/tr * h
 		//	Solutions:
-		//		g[t] = exp(-t/td)*g[0] + td*dr/(td-tr)*(exp(-t/td) - exp(-t/tr))*h[0]
+		//		g[t] = exp(-t/td)*g[0] + td*tr/(td-tr)*(exp(-t/td) - exp(-t/tr))*h[0]
 		//		h[t] = exp(-t/tr)*h[0]
 		//
 		//	dym_val: dynamical variables;
