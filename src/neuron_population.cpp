@@ -12,150 +12,20 @@ inline double L2(vector<double> &x, vector<double> &y) {
 	return sqrt((x[0] - y[0])*(x[0] - y[0]) + (x[1] - y[1])*(x[1] - y[1]));
 }
 
-void Scan(vector<bool> & mat, bool target_value, vector<int> &output_indices) {
-	output_indices.clear();
-	for (int s = 0; s < mat.size(); s++) {
-		if (mat[s] == target_value) output_indices.push_back(s);
-	}
-}
-
-void NeuronPopulation::InitializeConnectivity(po::variables_map &vm) {
-	int connecting_mode = vm["network.mode"].as<int>();
-	if (connecting_mode == 0) { // External connectivity matrix;
-		vector<vector<int> > connecting_matrix;
-		Read2D(vm["prefix"].as<string>() + vm["network.file"].as<string>(), connecting_matrix);
-		if (connecting_matrix.size() != neuron_number_ || connecting_matrix[0].size() != neuron_number_) {
-			throw runtime_error("wrong size of connectivity matrix");
-		} else {
-			for (size_t i = 0; i < neuron_number_; i ++) {
-				for (size_t j = 0; j < neuron_number_; j ++) {
-					if (connecting_matrix[i][j]) {
-						con_mat_[i][j] = true;
-						if (!is_con_) is_con_ = true;
-					}
-				}
-			}
-		}
-	} else if (connecting_mode == 1) {
-		// Based on directed network
-		int con_density = vm["network.dens"].as<int>();
-		for (int i = 0; i < neuron_number_; i++)  {
-			for (int j = 0; j < neuron_number_; j++) {
-				if (i != j) {
-					if (abs(i - j) <= con_density or neuron_number_ - abs(i - j) <= con_density) {
-					con_mat_[i][j] = true;
-					if (!is_con_) is_con_ = true;
-					}
-				}
-			}
-		}
-		double rewiring_probability = vm["network.pr"].as<double>();
-		// Generate networks;
-		cout << 2 * neuron_number_ * con_density << " connections total with ";
-		double x; // random variable;
-		int ind, empty_connection, count = 0;
-		vector<int> ones, zeros;
-		for (int i = 0; i < neuron_number_; i++) {
-			Scan(con_mat_[i], true, ones);
-			for (int j = 0; j < ones.size(); j++) {
-				x = rand_distribution(rand_gen);
-				if (x <= rewiring_probability) {
-					Scan(con_mat_[i], false, zeros);
-					for (vector<int>::iterator it = zeros.begin(); it != zeros.end(); it++) {
-						if (*it == i) {
-							zeros.erase(it);
-							break;
-						}
-					}
-					empty_connection = zeros.size();
-					ind = rand_gen() % empty_connection;
-					con_mat_[i][zeros[ind]] = true;
-					con_mat_[i][ones[j]] = false;
-					count += 1;
-				}
-			}
-		}
-		cout << count << " rewirings." << endl;
-	} else if (connecting_mode == 2) {
-		double p_ee = vm["network.pee"].as<double>();
-		double p_ie = vm["network.pie"].as<double>();
-		double p_ei = vm["network.pei"].as<double>();
-		double p_ii = vm["network.pii"].as<double>();
-		double x;
-		int count = 0;
-		for (size_t i = 0; i < neuron_number_; i ++) {
-			for (size_t j = 0; j < neuron_number_; j ++) {
-				if (i != j) { // avoid self-connection
-					x = rand_distribution(rand_gen);
-					if (types_[i]) {
-						if (types_[j]) {
-							if (x <= p_ee) {
-								con_mat_[i][j] = true;
-								count ++;
-							}
-						} else {
-							if (x <= p_ei) {
-								con_mat_[i][j] = true;
-								count ++;
-							}
-						}
-					} else {
-						if (types_[j]) {
-							if (x <= p_ie) {
-								con_mat_[i][j] = true;
-								count ++;
-							}
-						} else {
-							if (x <= p_ii) {
-								con_mat_[i][j] = true;
-								count ++;
-							}
-						}
-					}
-					if (con_mat_[i][j]) {
-						if (!is_con_) is_con_ = true;
-					}
-				}
-			}
-		}
-		printf(">> Total connections : %d\n", count);
-	}
-}
-
 void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
-	int synaptic_mode = vm["synapse.mode"].as<int>();
 	typedef Eigen::Triplet<double> T;
 	vector<T> T_list;
-	if (synaptic_mode == 0) {
-		vector<vector<double> > s_vals;
-		Read2D(vm["prefix"].as<string>() + vm["synapse.file"].as<string>(), s_vals);
-		for (size_t i = 0; i < neuron_number_; i ++) {
-			for (size_t j = 0; j < neuron_number_; j ++) {
-				if (s_vals[i][j] > 0) T_list.push_back(T(i,j,s_vals[i][j]));
-			}
-		}
-	} else if (synaptic_mode == 1) {
-		double s_ee = vm["synapse.see"].as<double>();
-		double s_ie = vm["synapse.sie"].as<double>();
-		double s_ei = vm["synapse.sei"].as<double>();
-		double s_ii = vm["synapse.sii"].as<double>();
-		for (size_t i = 0; i < neuron_number_; i ++) {
-			for (size_t j = 0; j < neuron_number_; j ++) {
-				if (con_mat_[i][j]) {
-					if (types_[i]) {
-						if (types_[j]) T_list.push_back(T(i,j,s_ee));
-						else T_list.push_back(T(i,j,s_ei));
-					} else {
-						if (types_[j]) T_list.push_back(T(i,j,s_ie));
-						else T_list.push_back(T(i,j,s_ii));
-					}
-				}
-			}
+	vector<vector<double> > s_vals;
+	Read2D(vm["prefix"].as<string>() + vm["synapse.file"].as<string>(), s_vals);
+	for (size_t i = 0; i < neuron_number_; i ++) {
+		for (size_t j = 0; j < neuron_number_; j ++) {
+			if (s_vals[i][j] > 0) T_list.push_back(T(i,j,s_vals[i][j]));
 		}
 	}
 	s_mat_.setFromTriplets(T_list.begin(), T_list.end());
 	s_mat_.makeCompressed();
 	printf("(number of connections in sparse-mat %d)\n", (int)s_mat_.nonZeros());
+	if (s_mat_.nonZeros()) is_con_ = true;
 }
 
 void NeuronPopulation::InitializeSynapticDelay(po::variables_map &vm) {
@@ -190,28 +60,12 @@ void NeuronPopulation::SetRef(double t_ref) {
 
 void NeuronPopulation::InitializeNeuronalType(po::variables_map &vm) {
 	int counter = 0;
-	double p = vm["neuron.p"].as<double>();
-	int neuron_mode = vm["neuron.mode"].as<int>();
-	if (neuron_mode == 0) {
-		vector<int> type_seq;
-		Read1D(vm["prefix"].as<string>() + vm["neuron.file"].as<string>(), type_seq, 0, 1);
-		for (int i = 0; i < neuron_number_; i ++) {
-			if ( type_seq[i] ) {
-				types_[i] = true;
-				counter++;
-			}
-		}
-	} else if (neuron_mode == 1) {
-		counter = floor(neuron_number_*p);
-		for (int i = 0; i < counter; i++) types_[i] = true;
-	} else if (neuron_mode == 2) {
-		double x = 0;
-		for (int i = 0; i < neuron_number_; i++) {
-			x = rand_distribution(rand_gen);
-			if (x < p) {
-				types_[i] = true;
-				counter++;
-			}
+	vector<int> type_seq;
+	Read1D(vm["prefix"].as<string>() + vm["neuron.file"].as<string>(), type_seq, 0, 1);
+	for (int i = 0; i < neuron_number_; i ++) {
+		if ( type_seq[i] ) {
+			types_[i] = true;
+			counter++;
 		}
 	}
 	printf(">> %d excitatory and %d inhibitory neurons in the network.\n", counter, neuron_number_-counter);
@@ -222,22 +76,12 @@ void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
 	//	poisson_setting: 
 	//		[:,0] excitatory Poisson rate;
 	//		[:,1] excitatory Poisson strength;
-	int driving_mode = vm["driving.mode"].as<int>();
-	if (driving_mode == 0) {
-		// import the data file of feedforward driving rate:
-		Read2D(vm["prefix"].as<string>() + vm["driving.file"].as<string>(), poisson_settings);
-		if (poisson_settings.size() != neuron_number_) {
-			cout << "Error inputing length! (Not equal to the number of neurons in the net)";
-			return;
-		}
-	} else if (driving_mode == 1) {
-		double pr = vm["driving.pr"].as<double>();
-		double ps = vm["driving.ps"].as<double>();
-		poisson_settings.resize(neuron_number_, vector<double>{pr, ps});
-	} else {
-		throw runtime_error("wrong driving_mode");
+	// import the data file of feedforward driving rate:
+	Read2D(vm["prefix"].as<string>() + vm["driving.file"].as<string>(), poisson_settings);
+	if (poisson_settings.size() != neuron_number_) {
+		cout << "Error inputing length! (Not equal to the number of neurons in the net)";
+		return;
 	}
-
 	bool poisson_output = vm["output.poi"].as<bool>();
 	for (int i = 0; i < neuron_number_; i++) {
 		pgs_[i].SetRate(poisson_settings[i][0]);
@@ -368,10 +212,6 @@ void NeuronPopulation::OutCurrent(FILEWRITE& file) {
 
 void NeuronPopulation::SaveNeuronType(string neuron_type_file) {
 	Print1D(neuron_type_file, types_, "trunc", 0);
-}
-
-void NeuronPopulation::SaveConMat(string connecting_matrix_file) {
-	Print2D(connecting_matrix_file, con_mat_, "trunc");
 }
 
 int NeuronPopulation::OutSpikeTrains(vector<vector<double> >& spike_trains) {

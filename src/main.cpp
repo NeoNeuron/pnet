@@ -33,38 +33,18 @@ int main(int argc, const char* argv[]) {
 	config.add_options()
 		// [network]
 		("network.size", po::value<int>(), "number of neurons")
-		("network.mode", po::value<int>(), "mode of network structure:\n0: external defined connectivity\n1:small-world network\n2: random network")
-		("network.file", po::value<string>(), "file of external defined connectivity matrix")
-		("network.pee", po::value<double>(), "connecting probability: exc -> exc")
-		("network.pie", po::value<double>(), "connecting probability: exc -> inh")
-		("network.pei", po::value<double>(), "connecting probability: inh -> exc")
-		("network.pii", po::value<double>(), "connecting probability: inh -> inh")
-		("network.dens", po::value<int>(), "half of number of connection per neuron in 'small-world' case")
-		("network.pr", po::value<double>(), "rewiring probability in 'small-world' case")
-		("network.seed", po::value<int>(), "seed to generate network")
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
 		("neuron.tref", po::value<double>(), "refractory period") 
-		("neuron.mode", po::value<int>(), "distribution mode of neuronal types:\n 0: external defined,\n 1: sequential,\n 2: random;")
-		("neuron.p", po::value<double>(), "probability of excitatory neurons")
-		("neuron.seed", po::value<int>()->default_value(0), "seed to generate types")
 		("neuron.file", po::value<string>(), "file of neuronal types")
 		// [synapse]
-		("synapse.mode", po::value<int>(), "distribution mode of synaptic strength:\n 0: external defined\n 1: fixed for specific pairs")
 		("synapse.file", po::value<string>(), "file of synaptic strength")
-		("synapse.see", po::value<double>(), "synaptic strength: exc -> exc")
-		("synapse.sie", po::value<double>(), "synaptic strength: exc -> inh")
-		("synapse.sei", po::value<double>(), "synaptic strength: inh -> exc")
-		("synapse.sii", po::value<double>(), "synaptic strength: inh -> inh")
 		// [space]
 		("space.mode", po::value<int>()->default_value(-1), "delay mode:\n0: external defined distance-dependent delay\n1: homogeneous delay\n-1: no delay")
 		("space.delay", po::value<double>()->default_value(0.0), "synaptic delay time")
 		("space.speed", po::value<double>(), "transmitting speed of spikes")	
 		("space.file", po::value<string>(), "file of spatial location of neurons")
 		// [driving]
-		("driving.mode", po::value<int>(), "driving mode:\n0: Poisson with external defined settings\n1: homogeneous Poisson")
-		("driving.pr", po::value<double>(), "Poisson rate")
-		("driving.ps", po::value<double>(), "Poisson strength")
 		("driving.file", po::value<string>(), "file of Poisson settings")
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
 		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
@@ -112,12 +92,7 @@ int main(int argc, const char* argv[]) {
 	int neuron_number = vm["network.size"].as<int>();
 	NeuronPopulation net(vm["neuron.model"].as<string>(), neuron_number);
 	// initialize the network;
-	rand_gen.seed(vm["neuron.seed"].as<int>());
 	net.InitializeNeuronalType(vm);
-	// load connecting mode;
-	rand_gen.seed(vm["network.seed"].as<int>());
-	net.InitializeConnectivity(vm);
-	rand_gen.seed(vm["network.seed"].as<int>());
 	// Set interneuronal coupling strength;
 	net.InitializeSynapticStrength(vm);
 	net.InitializeSynapticDelay(vm);
@@ -196,7 +171,6 @@ int main(int argc, const char* argv[]) {
 	// OUTPUTS:
 	start = chrono::system_clock::now();
 	//net.SaveNeuronType(dir + "neuron_type.csv");
-	//net.SaveConMat(dir + "mat.csv");
 
 	vector<vector<double> > spike_trains;
 	int spike_num = net.OutSpikeTrains(spike_trains);

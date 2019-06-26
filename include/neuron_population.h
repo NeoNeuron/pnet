@@ -51,7 +51,6 @@ class NeuronPopulation {
 
 		// Network Structure:
 		bool is_con_;
-		vector<vector<bool> > con_mat_; // built-in matrix for neuronal connectivity;
 		ConMat s_mat_;									// matrix of inter-neuronal interacting strength;
 		vector<vector<double> > delay_mat_;
 
@@ -85,19 +84,12 @@ class NeuronPopulation {
 			pgs_.resize(neuron_number_);
 			// Network structure:
 			is_con_ = false;
-			con_mat_.resize(neuron_number_, vector<bool>(neuron_number_, false));
 			s_mat_.resize(neuron_number_, neuron_number_);
 			delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
 			ext_inputs_.resize(neuron_number_);
 			synaptic_drivens_.resize(neuron_number_);
 			spike_trains_.resize(neuron_number_);
 		}
-		// Initialize network connectivity matrix:
-		// Three options:
-		// 0. given pre-defined network connectivity matrix;
-		// 1. small-world network, defined by connectivity density and rewiring;
-		// 2. randomly connected network;
-		void InitializeConnectivity(po::variables_map &vm);
 		
 		// INPUTS:
 		// Set interneuronal coupling strength;
