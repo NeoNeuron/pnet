@@ -68,7 +68,7 @@ config['neuron']['tref']    = '2.0'
 config['neuron']['file']    = 'ty_neu.csv'
 #---
 config.add_section('synapse')
-config['synapse']['file']   = 'smat.csv'
+config['synapse']['file']   = 'smat.npy'
 #---
 config.add_section('space')
 config['space']['mode']     = '0'
@@ -157,29 +157,27 @@ for i in range(grid_size):
 finish = time.time()
 print('>> coordinate matrix : %3.3f s' % (finish-start))
 
-start = time.time()
+#start = time.time()
 np.savetxt(args.prefix + config['neuron']['file'], ty, delimiter = ',', fmt = '%d')
-finish = time.time()
-print('>> output type list : %3.3f s' % (finish-start))
-
-start = time.time()
-np.savetxt(args.prefix + 'mat.csv', mat, delimiter = ',', fmt = '%d')
-#np.save(args.prefix + 'mat.csv', mat)
-finish = time.time()
-print('>> output adjacent matrix : %3.3f s' % (finish-start))
-
-start = time.time()
+#finish = time.time()
+#print('>> output type list : %3.3f s' % (finish-start))
+#
+#start = time.time()
+np.save(args.prefix + 'mat.npy', mat)
+#finish = time.time()
+#print('>> output adjacent matrix : %3.3f s' % (finish-start))
+#
+#start = time.time()
 np.savetxt(args.prefix + config['driving']['file'], pmat, delimiter = ',', fmt = '%.3f')
-finish = time.time()
-print('>> output poisson matrix : %3.3f s' % (finish-start))
-
-start = time.time()
-np.savetxt(args.prefix + config['synapse']['file'], smat, delimiter = ',', fmt = '%.4e')
-#np.save(args.prefix + 'smat.csv', smat)
-finish = time.time()
-print('>> output strength matrix : %3.3f s' % (finish-start))
-
-start = time.time()
+#finish = time.time()
+#print('>> output poisson matrix : %3.3f s' % (finish-start))
+#
+#start = time.time()
+np.save(args.prefix + config['synapse']['file'], smat)
+#finish = time.time()
+#print('>> output strength matrix : %3.3f s' % (finish-start))
+#
+#start = time.time()
 np.savetxt(args.prefix + config['space']['file'], gd, delimiter = ',', fmt = '%.6f')
-finish = time.time()
-print('>> output coordinate matrix : %3.3f s' % (finish-start))
+#finish = time.time()
+#print('>> output coordinate matrix : %3.3f s' % (finish-start))

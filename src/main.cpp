@@ -26,8 +26,8 @@ int main(int argc, const char* argv[]) {
 	desc.add_options()
 		("help,h", "produce help message")
 		("config", "detailed message for config file")
-		("config-file,c", po::value<string>(), "config file")
 		("prefix", po::value<string>()->default_value("./"), "prefix of output files")
+		("config-file,c", po::value<string>()->default_value("config.ini"), "config file")
 		;
 	po::options_description config("Configs");
 	config.add_options()
@@ -77,7 +77,8 @@ int main(int argc, const char* argv[]) {
 	// Loading config.ini:
 	ifstream config_file;
 	if (vm.count("config-file")) {
-		config_file.open(vm["config-file"].as<string>().c_str());
+		string cfname = vm["prefix"].as<string>() + vm["config-file"].as<string>();
+		config_file.open(cfname.c_str());
 	} else {
 		cout << "lack of config file\n";
 		return -1;
@@ -134,8 +135,8 @@ int main(int argc, const char* argv[]) {
 	printf(">> Initialization : \t%3.3f s\n", elapsed_seconds.count());
 	fflush(stdout);
 
-	NeuronalNetwork net_sim;
 	start = chrono::system_clock::now();
+	NeuronalNetwork net_sim;
 	int progress = 0;
 	while (t < tmax) {
 		net_sim.UpdateNetworkState(&net, t, dt);

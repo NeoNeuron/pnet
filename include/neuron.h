@@ -14,14 +14,14 @@
 //#define exp(x) fmath::expd(x)
 
 template<typename T>
-inline T my_expd(const T &x)
+inline T my_exp(const T &x)
 { return exp(x); }
 
 template<>
-inline double my_expd(const double &x)
+inline double my_exp(const double &x)
 { return fmath::expd(x); }
 
-#define exp(x) my_expd(x)
+//#define exp(x) my_expd(x)
 
 using namespace std;
 
@@ -95,8 +95,8 @@ class LIF_G_Model {
 		//	dt: time step;
 		//	return: none;
 		void UpdateG(double *dym_val, double dt) const {
-			dym_val[id_gE_] *= exp( -dt / tau_E_ );
-			dym_val[id_gI_] *= exp( -dt / tau_I_ );
+			dym_val[id_gE_] *= my_exp( -dt / tau_E_ );
+			dym_val[id_gI_] *= my_exp( -dt / tau_I_ );
 		}
 
 		// ODE govern the dynamic of IF neuron;
@@ -115,8 +115,8 @@ class LIF_G_Model {
 		//	dt: size of time step, unit ms;
 		//	return: derivative of membrane potential at t = t(n);
 		double DymInplaceRK4(double *dym_val, double dt) const {
-			double exp_E = exp(-0.5 * dt / tau_E_);
-			double exp_I = exp(-0.5 * dt / tau_I_);
+			double exp_E = my_exp(-0.5 * dt / tau_E_);
+			double exp_I = my_exp(-0.5 * dt / tau_I_);
 			// k1 = GetDv(t_n, v_n);
 			// k2 = GetDv(t_n+1/2, v_n + k1*dt / 2);
 			// k3 = GetDv(t_n+1/2, v_n + k2*dt / 2);
@@ -198,13 +198,13 @@ class LIF_GH_Model {
 		//	return: none;
 		void UpdateG(double *dym_val, double dt) const {
 			// excitatory
-			double exp_r = exp(-dt / tau_Er_);
-			double exp_d = exp(-dt / tau_Ed_);
+			double exp_r = my_exp(-dt / tau_Er_);
+			double exp_d = my_exp(-dt / tau_Ed_);
 			dym_val[id_gE_] = exp_d*dym_val[id_gE_] + (exp_d - exp_r)*tau_Ed_*tau_Er_/(tau_Ed_ - tau_Er_)*dym_val[id_hE_];
 			dym_val[id_hE_] *= exp_r;
 			// inhibitory
-			exp_r = exp(-dt / tau_Ir_);
-			exp_d = exp(-dt / tau_Id_);
+			exp_r = my_exp(-dt / tau_Ir_);
+			exp_d = my_exp(-dt / tau_Id_);
 			dym_val[id_gI_] = exp_d*dym_val[id_gI_] + (exp_d - exp_r)*tau_Id_*tau_Ir_/(tau_Id_ - tau_Ir_)*dym_val[id_hI_];
 			dym_val[id_hI_] *= exp_r;
 		}
@@ -225,10 +225,10 @@ class LIF_GH_Model {
 		//	dt: size of time step, unit ms;
 		//	return: derivative of membrane potential at t = t(n);
 		double DymInplaceRK4(double *dym_val, double dt) const {
-			double exp_Er = exp(-0.5 * dt / tau_Er_);
-			double exp_Ed = exp(-0.5 * dt / tau_Ed_);
-			double exp_Ir = exp(-0.5 * dt / tau_Ir_);
-			double exp_Id = exp(-0.5 * dt / tau_Id_);
+			double exp_Er = my_exp(-0.5 * dt / tau_Er_);
+			double exp_Ed = my_exp(-0.5 * dt / tau_Ed_);
+			double exp_Ir = my_exp(-0.5 * dt / tau_Ir_);
+			double exp_Id = my_exp(-0.5 * dt / tau_Id_);
 			double exp_E_comb = (exp_Ed - exp_Er)*tau_Ed_*tau_Er_/(tau_Ed_ - tau_Er_);
 			double exp_I_comb = (exp_Id - exp_Ir)*tau_Id_*tau_Ir_/(tau_Id_ - tau_Ir_);
 			// k1 = GetDv(t_n, v_n);
@@ -298,8 +298,8 @@ class LIF_I_Model {
 		//	dt: time step;
 		//	return: none;
 		void UpdateG(double *dym_val, double dt) const {
-			dym_val[id_gE_] *= exp( -dt / tau_E_ );
-			dym_val[id_gI_] *= exp( -dt / tau_I_ );
+			dym_val[id_gE_] *= my_exp( -dt / tau_E_ );
+			dym_val[id_gI_] *= my_exp( -dt / tau_I_ );
 		}
 
 		// ODE govern the dynamic of IF neuron;
@@ -318,8 +318,8 @@ class LIF_I_Model {
 		//	dt: size of time step, unit ms;
 		//	return: derivative of membrane potential at t = t(n);
 		double DymInplaceRK4(double *dym_val, double dt) const {
-			double exp_E = exp(-0.5 * dt / tau_E_);
-			double exp_I = exp(-0.5 * dt / tau_I_);
+			double exp_E = my_exp(-0.5 * dt / tau_E_);
+			double exp_I = my_exp(-0.5 * dt / tau_I_);
 			// k1 = GetDv(t_n, v_n);
 			// k2 = GetDv(t_n+1/2, v_n + k1*dt / 2);
 			// k3 = GetDv(t_n+1/2, v_n + k2*dt / 2);

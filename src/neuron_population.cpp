@@ -5,6 +5,8 @@
 //	Date: 2019-06-09
 //******************************
 #include "neuron_population.h"
+#include <xtensor/xarray.hpp>
+#include <xtensor/xnpy.hpp>
 
 using namespace std;
 
@@ -15,11 +17,11 @@ inline double L2(vector<double> &x, vector<double> &y) {
 void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
 	typedef Eigen::Triplet<double> T;
 	vector<T> T_list;
-	vector<vector<double> > s_vals;
-	Read2D(vm["prefix"].as<string>() + vm["synapse.file"].as<string>(), s_vals);
+	string sfname = vm["prefix"].as<string>() + vm["synapse.file"].as<string>();
+	auto s_vals = xt::load_npy<double>(sfname.c_str());
 	for (size_t i = 0; i < neuron_number_; i ++) {
 		for (size_t j = 0; j < neuron_number_; j ++) {
-			if (s_vals[i][j] > 0) T_list.push_back(T(i,j,s_vals[i][j]));
+			if (s_vals(i,j) > 0) T_list.push_back(T(i,j,s_vals(i,j)));
 		}
 	}
 	s_mat_.setFromTriplets(T_list.begin(), T_list.end());
