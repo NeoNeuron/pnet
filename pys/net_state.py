@@ -10,14 +10,15 @@ import struct as st
 import subprocess
 import time
 
-def import_bin_data(fname):
+def import_bin_data(fname, use_col):
     f = open(fname, 'rb')
     shape = st.unpack('QQ', f.read(16))
     #dat = np.array(st.unpack('d'*shape[0]*shape[1], f.read(8*shape[0]*shape[1])))
     #dat = np.reshape(dat, shape)
-    dat = np.zeros(shape)
+    dat = np.zeros((shape[0], len(use_col)))
     for i in range(shape[0]):
-        dat[i] = np.array(st.unpack('d'*shape[1], f.read(8*shape[1])))
+        bf = np.array(st.unpack('d'*shape[1], f.read(8*shape[1])))
+        dat[i] = bf[use_col] 
     f.close()
     return dat
 
@@ -121,8 +122,8 @@ ax2.legend()
 finish = time.time()
 print(">> firing rate hist time : %3.3f s" % (finish - start))
 
-print('-> Mean firing rate Exc : %3.3f Hz' % (mrate[ty==1].mean()/tmax*1e3))
-print('-> Mean firing rate Inh : %3.3f Hz' % (mrate[ty==0].mean()/tmax*1e3))
+print('-> Mean firing rate Exc : %3.3f Hz' % (mrate[types==1].mean()/tmax*1e3))
+print('-> Mean firing rate Inh : %3.3f Hz' % (mrate[types==0].mean()/tmax*1e3))
 #ty0 = np.genfromtxt(args.dir + 'ty3.csv', delimiter = ',')
 #print('-> Mean firing rate Exc : %3.3f Hz' % (mrate[ty0==0].mean()/tmax*1e3))
 #print('-> Mean firing rate Inh1: %3.3f Hz' % (mrate[ty0==1].mean()/tmax*1e3))
@@ -143,16 +144,15 @@ print(">> ISI hist time : %3.3f s" % (finish - start))
 start = time.time()
 # draw the excitatory current and inhibition current of the network
 ax4 = plt.subplot2grid((2,3), (1,0), colspan = 2, rowspan = 1)
-V = import_bin_data(args.dir + '/V.bin')
-I = import_bin_data(args.dir + '/I.bin')
-GE = import_bin_data(args.dir + '/GE.bin')
-GI = import_bin_data(args.dir + '/GI.bin')
+sample_id = [10]
+V = import_bin_data(args.dir + '/V.bin', use_col = sample_id)
+I = import_bin_data(args.dir + '/I.bin', use_col = sample_id)
+GE = import_bin_data(args.dir + '/GE.bin', use_col = sample_id)
+GI = import_bin_data(args.dir + '/GI.bin', use_col = sample_id)
 ve = 14.0/3.0
 vi = -2.0/3.0
-sample_id = 10
-Ie = GE[:,sample_id]*(ve-V[:,sample_id])
-Ii = GI[:,sample_id]*(vi-V[:,sample_id])
-I = I[:,sample_id]
+Ie = GE*(ve-V)
+Ii = GI*(vi-V)
 #I = I.sum(1)
 #Ie = Ie.sum(1)
 #Ii = Ii.sum(1)

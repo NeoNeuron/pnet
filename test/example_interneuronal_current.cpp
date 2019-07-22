@@ -93,13 +93,13 @@ int main(int argc, const char* argv[]) {
 			}
 		}
 	}
-  #pragma omp parallel for
-	for (int i = 0; i < v.size(); i ++) {
-		for (int j = 0; j < v[i].size(); j ++) {
-			G[i][j] *= ve - v[i][j];
-		}
-	}
-	Print2DBin(dir + "Iec.bin", G, "trunc");
+  //#pragma omp parallel for
+	//for (int i = 0; i < v.size(); i ++) {
+	//	for (int j = 0; j < v[i].size(); j ++) {
+	//		G[i][j] *= ve - v[i][j];
+	//	}
+	//}
+	Print2DBin(dir + "GEc.bin", G, "trunc");
 
 	auto finish = chrono::system_clock::now();
 	chrono::duration<double> elapsed_seconds = finish-start;
