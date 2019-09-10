@@ -32,11 +32,11 @@ int main(int argc, const char* argv[]) {
 	po::options_description config("Configs");
 	config.add_options()
 		// [network]
-		("network.size", po::value<int>(), "number of neurons")
+		("network.Ne", po::value<int>(), "number of E neurons")
+		("network.Ni", po::value<int>(), "number of I neurons")
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
 		("neuron.tref", po::value<double>(), "refractory period") 
-		("neuron.file", po::value<string>(), "file of neuronal types")
 		// [synapse]
 		("synapse.file", po::value<string>(), "file of synaptic strength")
 		// [space]
@@ -90,10 +90,9 @@ int main(int argc, const char* argv[]) {
 	//
 	// Network initialization
 	//
-	int neuron_number = vm["network.size"].as<int>();
-	NeuronPopulation net(vm["neuron.model"].as<string>(), neuron_number);
-	// initialize the network;
-	net.InitializeNeuronalType(vm);
+	int Ne = vm["network.Ne"].as<int>();
+	int Ni = vm["network.Ni"].as<int>();
+	NeuronPopulation net(vm["neuron.model"].as<string>(), Ne, Ni);
 	// Set interneuronal coupling strength;
 	net.InitializeSynapticStrength(vm);
 	net.InitializeSynapticDelay(vm);
@@ -103,6 +102,10 @@ int main(int argc, const char* argv[]) {
 	rand_gen.seed(vm["driving.seed"].as<int>());
 	net.InitializePoissonGenerator(vm);
 
+	// Init raster output
+	string raster_path = dir + "raster.csv";
+	net.InitRasterOutput(raster_path);
+
 	// SETUP DYNAMICS:
 	double t = 0, dt = vm["time.dt"].as<double>();
 	double tmax = vm["time.T"].as<double>();
@@ -110,7 +113,7 @@ int main(int argc, const char* argv[]) {
 	// Define the shape of data;
 	size_t shape[2];
 	shape[0] = tmax * recording_rate;
-	shape[1] = neuron_number;
+	shape[1] = Ne + Ni;
 
 	// Define file-outputing flags;
 	bool v_flag, i_flag, ge_flag, gi_flag;
@@ -169,19 +172,6 @@ int main(int argc, const char* argv[]) {
 	printf(">> Simulation : \t%3.3f s\n", elapsed_seconds.count());
 	
 	printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
-	// OUTPUTS:
-	start = chrono::system_clock::now();
-	//net.SaveNeuronType(dir + "neuron_type.csv");
 
-	vector<vector<double> > spike_trains;
-	int spike_num = net.OutSpikeTrains(spike_trains);
-	string raster_path = dir + "raster.csv";
-	Print2D(raster_path, spike_trains, "trunc");
-	printf(">> Mean firing rate: %3.3f Hz\n", spike_num*1000.0/tmax/neuron_number);
-	finish = chrono::system_clock::now();
-
-	// Timing:
-	elapsed_seconds = finish-start;
-	printf(">> Saving outputs : \t%3.3f s\n", elapsed_seconds.count());
 	return 0;
 }

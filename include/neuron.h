@@ -29,9 +29,17 @@ struct Spike {
 	bool type; // type of spike: true for excitation(AMPA), false for inhibition(GABA);
 	double t; // Exact spiking time;
 	double s; // strength of spikes;
+
+	bool operator < (const Spike &b) const
+  { return t < b.t; }
+  bool operator > (const Spike &b) const
+  { return t > b.t; }
+  bool operator == (const Spike &b) const
+  { return t == b.t && s == b.s; }
 };
 
-inline bool compSpike(const Spike &x, const Spike &y) { return x.t < y.t; }
+inline bool compSpike(const Spike &x, const Spike &y) { return x < y; }
+//inline bool compSpike(const Spike &x, const Spike &y) { return x.t < y.t; }
 
 // Neuron Base:
 class NeuronBase {
@@ -148,8 +156,8 @@ class LIF_GH_Model {
 		// PARAMETERS:
 		double tau_Er_ = 1.0;	// (ms) rising const for exc conductance;
 		double tau_Ed_ = 2.0;	// (ms) decay  const for exc conductance;
-		double tau_Ir_ = 2.0;	// (ms) rising const for inh conductance;
-		double tau_Id_ = 5.0;	// (ms) decay  const for inh conductance;
+		double tau_Ir_ = 1.0;	// (ms) rising const for inh conductance;
+		double tau_Id_ = 10.0;	// (ms) decay  const for inh conductance;
 		double g_m_ = 5e-2;		// (1/ms) normalized membrane conductance;
 		double tau_ = 2.0;		// (ms) default refractory Period;
 		double resting_potential_ = 0.0;

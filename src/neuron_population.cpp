@@ -60,19 +60,6 @@ void NeuronPopulation::SetRef(double t_ref) {
 	neuron_sim_->SetRef(t_ref);
 }
 
-void NeuronPopulation::InitializeNeuronalType(po::variables_map &vm) {
-	int counter = 0;
-	vector<int> type_seq;
-	Read1D(vm["prefix"].as<string>() + vm["neuron.file"].as<string>(), type_seq, 0, 1);
-	for (int i = 0; i < neuron_number_; i ++) {
-		if ( type_seq[i] ) {
-			types_[i] = true;
-			counter++;
-		}
-	}
-	printf(">> %d excitatory and %d inhibitory neurons in the network.\n", counter, neuron_number_-counter);
-}
-
 void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
 	vector<vector<double> > poisson_settings;
 	//	poisson_setting: 
@@ -101,6 +88,9 @@ void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
 	}
 }
 
+void NeuronPopulation::InitRasterOutput(string ras_path) {
+	raster_file_.open(ras_path.c_str());	
+}
 
 // Used simple interaciton case network system;
 //// TODO: the number of sorting can be reduced;
@@ -141,12 +131,12 @@ void NeuronPopulation::InjectSpike(Spike x, int id) {
 }
 
 void NeuronPopulation::NewSpike(int id, double t, double spike_time) {
-		spike_trains_[id].push_back(t + spike_time);
+	raster_file_ << (int)id << ',' << setprecision(6) << (double)(t+spike_time) << '\n';
 }
 
 void NeuronPopulation::NewSpike(int id, double t, vector<double>& spike_times) {
 	for (vector<double>::iterator it = spike_times.begin(); it != spike_times.end(); it ++) {
-		spike_trains_[id].push_back(t + *it);
+		raster_file_ << (int)id << ',' << setprecision(6) << (double)(t+*it) << '\n';
 	}
 }
 
@@ -174,8 +164,6 @@ void NeuronPopulation::RestoreNeurons() {
 	ext_inputs_.resize(neuron_number_);
 	synaptic_drivens_.clear();
 	synaptic_drivens_.resize(neuron_number_);
-	spike_trains_.clear();
-	spike_trains_.resize(neuron_number_);
 }
 
 void NeuronPopulation::OutPotential(FILEWRITE& file) {
@@ -210,21 +198,6 @@ void NeuronPopulation::OutCurrent(FILEWRITE& file) {
 		current[i] = neuron_sim_->GetCurrent(GetPtr(dym_vals_, i));
 	}
 	file.Write(current);
-}
-
-void NeuronPopulation::SaveNeuronType(string neuron_type_file) {
-	Print1D(neuron_type_file, types_, "trunc", 0);
-}
-
-int NeuronPopulation::OutSpikeTrains(vector<vector<double> >& spike_trains) {
-	spike_trains.resize(neuron_number_);
-	int spike_num = 0;
-	for (int i = 0; i < neuron_number_; i++) {
-		spike_trains[i] = spike_trains_[i];
-		spike_num += spike_trains_[i].size();
-	}
-	//Print2D(path, spikes, "trunc");
-	return spike_num;
 }
 
 int NeuronPopulation::GetNeuronNumber() {

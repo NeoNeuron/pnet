@@ -40,7 +40,9 @@ Ni = len(types) - types.sum()
 
 config = cp.ConfigParser()
 config.read(args.dir + '/config.ini')
-neuron_num = int(config.get('network', 'size'))
+Ne = int(config.get('network', 'Ne'))
+Ni = int(config.get('network', 'Ni'))
+neuron_num = Ne + Ni
 tmax = float(config.get('time', 'T'))
 
 # create canvas
@@ -49,7 +51,7 @@ fig = plt.figure(figsize = (12,6), dpi = 80)
 
 # config the plotting range (unit millisecond)
 dt = 5
-t_start = tmax - 500 
+t_start = tmax - 1000 
 t_end = tmax 
 t = np.arange(t_start, t_end, dt)
 counts_exc = np.zeros(len(t))
@@ -57,61 +59,48 @@ counts_inh = np.zeros(len(t))
 
 # draw raster plot
 start = time.time()
-ax1 = plt.subplot2grid((2,3), (0,0), colspan = 2, rowspan = 1)
-f = open(args.dir + '/raster.csv')
-counter = 0
 exc_counter_max = 400
 inh_counter_max = 400
 if Ne < exc_counter_max:
     exc_counter_max = Ne
 if Ni < inh_counter_max:
-    inh_counter_max = Ni + exc_counter_max
-else:
-    inh_counter_max += exc_counter_max 
-exc_counter = 1
-inh_counter = 1 + exc_counter_max
-mrate = np.zeros(neuron_num)
-isi_e = np.array([])
-isi_i = np.array([])
-for line in f:
-    spike_str = line.strip().strip(',')
-    if spike_str:
-        spikes = [float(i) for i in spike_str.split(',') if float(i) < tmax]
-        mrate[counter] = len(spikes)
-    else:
-        mrate[counter] = 0
-    if types[counter]:
-        if mrate[counter] > 0:
-            counter_list = np.ones(len(spikes)) * exc_counter
-            if exc_counter <= exc_counter_max:
-                ax1.scatter(spikes, counter_list, s = 1, c = 'r')
-            isi_e = np.append(isi_e, np.diff(spikes))
-        exc_counter += 1
-    else:
-        if mrate[counter] > 0:
-            counter_list = np.ones(len(spikes)) * inh_counter
-            if inh_counter <= inh_counter_max:
-                ax1.scatter(spikes, counter_list, s = 1, c = 'b')
-            isi_i = np.append(isi_i, np.diff(spikes))
-        inh_counter += 1
-    counter += 1
-f.close();
+    inh_counter_max = Ni
+
+ras = np.genfromtxt(args.dir + './raster.csv', delimiter = ',')
+exc_mask = (ras[:,0]<exc_counter_max)
+inh_mask = np.all([ras[:,0]>=Ne, ras[:,0]<inh_counter_max+Ne], axis=0)
+
+ax1 = plt.subplot2grid((2,3), (0,0), colspan = 2, rowspan = 1)
+ax1.scatter(ras[exc_mask,1],ras[exc_mask,0], s = 2,color='r')
+ax1.scatter(ras[inh_mask,1],ras[inh_mask,0]-Ne+exc_counter_max,s = 2,color='b')
 ax1.set_xlim(t_start, t_end)
-ax1.set_ylim(0, inh_counter_max + 1)
+ax1.set_ylim(0, exc_counter_max + inh_counter_max + 1)
 ax1.set_ylabel('Indices')
 ax1.set_xlabel('Time (ms)')
 ax1.grid(linestyle='--')
 finish = time.time()
 print(">> raster plot time : %3.3f s" % (finish - start))
 
-# plot the histogram of mean firing rate
 
+# plot the histogram of mean firing rate
 start = time.time()
+mrate = np.zeros(neuron_num)
+isi_e = np.array([])
+isi_i = np.array([])
+for i in range(neuron_num):
+    i_mask = ras[:,0]==i
+    mrate[i] = (ras[:,0]==i).sum()
+    if mrate[i] > 0:
+        if i < Ne:
+            isi_e = np.append(isi_e, np.diff(np.sort(ras[i_mask,1])))
+        else:
+            isi_i = np.append(isi_i, np.diff(np.sort(ras[i_mask,1])))
+
 ax2 = plt.subplot2grid((2,3), (0,2), colspan = 1, rowspan = 1)
-n1, edge1 = np.histogram(mrate[types==1]/(mrate.sum()/neuron_num), 25)
-n2, edge2 = np.histogram(mrate[types==0]/(mrate.sum()/neuron_num), 25)
-n1 = n1*100/len(types)
-n2 = n2*100/len(types)
+n1, edge1 = np.histogram(mrate[0:Ne]/(mrate.sum()/neuron_num), 25)
+n2, edge2 = np.histogram(mrate[Ne:-1]/(mrate.sum()/neuron_num), 25)
+n1 = n1*100/neuron_num
+n2 = n2*100/neuron_num
 ax2.bar(edge1[:-1], n1, color = 'r', width = edge1[1]-edge1[0], align='edge', label = 'EXC Neurons')
 ax2.bar(edge2[:-1], n2, color = 'b', width = edge2[1]-edge2[0], align='edge', label = 'INH Neurons')
 #ax2.hist(mrate/(mrate.sum()/neuron_num), 50)
@@ -122,8 +111,15 @@ ax2.legend()
 finish = time.time()
 print(">> firing rate hist time : %3.3f s" % (finish - start))
 
-print('-> Mean firing rate Exc : %3.3f Hz' % (mrate[types==1].mean()/tmax*1e3))
-print('-> Mean firing rate Inh : %3.3f Hz' % (mrate[types==0].mean()/tmax*1e3))
+if mrate[0:Ne].mean():
+    print('-> Mean firing rate Exc : %3.3f Hz' % (mrate[types==1].mean()/tmax*1e3))
+else:
+    print('-> Mean firing rate Exc : 0 Hz')
+if mrate[Ne:-1].mean():
+    print('-> Mean firing rate Inh : %3.3f Hz' % (mrate[types==0].mean()/tmax*1e3))
+else:
+    print('-> Mean firing rate Inh : 0 Hz')
+
 #ty0 = np.genfromtxt(args.dir + 'ty3.csv', delimiter = ',')
 #print('-> Mean firing rate Exc : %3.3f Hz' % (mrate[ty0==0].mean()/tmax*1e3))
 #print('-> Mean firing rate Inh1: %3.3f Hz' % (mrate[ty0==1].mean()/tmax*1e3))

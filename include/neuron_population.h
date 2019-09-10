@@ -22,9 +22,17 @@ struct SpikeElement {
 	int index;	// The sequence order of spikes within single time interval;
 	double t;		// exact spiking time;
 	bool type;	// The type of neuron that fired;
+
+	bool operator < (const SpikeElement &b) const
+  { return t < b.t; }
+  bool operator > (const SpikeElement &b) const
+  { return t > b.t; }
+  bool operator == (const SpikeElement &b) const
+  { return t == b.t && type == b.type; }
 };
 
-inline bool compSpikeElement(const SpikeElement &x, const SpikeElement &y) { return x.t < y.t; }
+inline bool compSpikeElement(const SpikeElement &x, const SpikeElement &y) { return x < y; }
+//inline bool compSpikeElement(const SpikeElement &x, const SpikeElement &y) { return x.t < y.t; }
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> DymVals; 
 typedef Eigen::SparseMatrix<double, Eigen::ColMajor> ConMat; 
@@ -42,8 +50,8 @@ class NeuronPopulation {
 	
 		// Network Parameters:
 		int neuron_number_;		// number of the neurons in the group;
+		int Ne_;		// number of excitatory neurons;
 		DymVals dym_vals_;		// dynamic variables of neurons;
-		vector<bool> types_;	// vector to store types of neurons;
 
 		// PoissonGenerators:
 		vector<PoissonGenerator> pgs_;
@@ -59,11 +67,11 @@ class NeuronPopulation {
 
 		// Network data:
 		vector<vector<Spike> > synaptic_drivens_;
-		vector<vector<double> > spike_trains_;
+		ofstream raster_file_;
 
 	//public:
 		// Neuronal network initialization:
-		NeuronPopulation(string neuron_type, int neuron_number) {
+		NeuronPopulation(string neuron_type, int Ne, int Ni) {
 			// Network Parameters:
 			if (neuron_type == "LIF_G") {
 				neuron_sim_ = new Sim_LIF_G();
@@ -75,9 +83,9 @@ class NeuronPopulation {
 				throw runtime_error("ERROR: wrong neuron type");
 			}
 			dym_n_ = neuron_sim_->GetDymNum();
-			neuron_number_ = neuron_number;
+			Ne_ = Ne;
+			neuron_number_ = Ne + Ni;
 			dym_vals_.resize(neuron_number_, dym_n_);
-			types_.resize(neuron_number_, false);
 			for (int i = 0; i < neuron_number_; i++) {
 				neuron_sim_->GetDefaultDymVal(GetPtr(dym_vals_, i));
 			}
@@ -88,7 +96,6 @@ class NeuronPopulation {
 			delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
 			ext_inputs_.resize(neuron_number_);
 			synaptic_drivens_.resize(neuron_number_);
-			spike_trains_.resize(neuron_number_);
 		}
 		
 		// INPUTS:
@@ -103,16 +110,14 @@ class NeuronPopulation {
 		// Set time period of refractory:
 		void SetRef(double t_ref);
 
-		// 	Initialize neuronal types in the network;
-		//	p: the probability of the presence of excitatory neuron;
-		//	seed: seed for random number generator;
-		void InitializeNeuronalType(po::variables_map &vm);
-
 		//	Set driving type: true for external Poisson driven, false for internal ones;
 		void SetDrivingType(bool driving_type);
 
 		//	Initialize internal homogeneous feedforward Poisson rate;
 		void InitializePoissonGenerator(po::variables_map &vm);
+
+		// Initialize interface for raster data;
+		void InitRasterOutput(string ras_path);
 
 		// 	Input new spikes for neurons all together;
 		//void InNewSpikes(vector<vector<Spike> > &data);
@@ -149,15 +154,8 @@ class NeuronPopulation {
 		//	Output current to *.csv file;
 		void OutCurrent(FILEWRITE& file);
 
-		// Save neuronal type vector;
-		void SaveNeuronType(string neuron_type_file);
-
 		// Save connectivity matrix
 		void SaveConMat(string connecting_matrix_file);
-
-		// Output spike trains of the network to spike_trains;
-		// return: the total number of spikes in the network during the simulation;
-		int OutSpikeTrains(vector<vector<double> >& spike_trains);
 
 		int GetNeuronNumber();
 

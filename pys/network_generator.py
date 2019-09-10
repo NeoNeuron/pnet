@@ -18,21 +18,20 @@ class MyConfigParser(cp.ConfigParser):
 parser = argparse.ArgumentParser(description = "generate required network architecture")
 parser.add_argument('prefix', type=str, default='./', help = 'directory of source data and output data')
 args = parser.parse_args()
-
 #========================================
-
 #network setting
-Ne = 80   # No. of exc neuron
-Ni = 20   # No. of inh neuron
-K  = 10    # connection degree
+Ne = 1200   # No. of exc neuron
+Ni = 400   # No. of inh neuron
+K  = 160    # connection degree
 
 N = Ne + Ni
 
 # interaction setting 
-Jee = 1.0e-1
-Jie = 1.0e-1
-Jei = 1.0e-1
-Jii = 1.0e-1
+g = 3.0
+Jee = 1.3e-1
+Jie = 2.6e-1
+Jei = 1.3e-1 * g
+Jii = 2.6e-1 * g
 
 see = Jee / np.sqrt(K)
 sie = Jie / np.sqrt(K)
@@ -40,10 +39,10 @@ sei = Jei / np.sqrt(K)
 sii = Jii / np.sqrt(K)
 
 # poisson setting
-pr_e = 20      # unit Hz
-pr_i = 20      # unit Hz
-ps_e = 1.0e-1     # 
-ps_i = 0.8e-1     # 
+pr_e = 3.0     # unit Hz
+pr_i = 3.0     # unit Hz
+ps_e = 2.50e-1     # 
+ps_i = 0.50e-1    # 
 
 # rescale poisson
 pr_e *= K/1000
@@ -54,26 +53,32 @@ ps_i /= np.sqrt(K)
 # spatial location of neurons
 # currently using square grid
 
+# print the estimated value of EPSPs and IPSPs
+
+print('see : %f ( %3.3f mV)' % (see, see*100*(1/0.5-1/2)))
+print('sie : %f ( %3.3f mV)' % (sie, sie*100*(1/0.5-1/2)))
+print('sei : %f (-%3.3f mV)' % (sei, sei*100/7*(1/0.5-1/80)))
+print('sii : %f (-%3.3f mV)' % (sii, sii*100/7*(1/0.5-1/80)))
+
 #========================================
 # generate config file
 config = MyConfigParser()
-config.read('doc/config_net.ini')
 #---
 config.add_section('network')
-config['network']['size']   = str(N) 
+config['network']['Ne']   = str(Ne) 
+config['network']['Ni']   = str(Ni) 
 #---
 config.add_section('neuron')
 config['neuron']['model']   = 'LIF_GH'
 config['neuron']['tref']    = '2.0'
-config['neuron']['file']    = 'ty_neu.csv'
 #---
 config.add_section('synapse')
 config['synapse']['file']   = 'smat.npy'
 #---
 config.add_section('space')
-config['space']['mode']     = '0'
-config['space']['delay']    = '0.0'
-config['space']['speed']    = '1.0'
+config['space']['mode']     = '-1'
+config['space']['delay']    = '3.0'
+config['space']['speed']    = '0.3'
 config['space']['file']     = 'coordinate.csv'
 #---
 config.add_section('driving')
@@ -89,60 +94,66 @@ config['time']['stp']       = '0.5'
 config.add_section('output')
 config['output']['poi']     = 'false'
 config['output']['V']       = 'true'
-config['output']['I']       = 'false'
-config['output']['GE']      = 'false'
-config['output']['GI']      = 'false'
+config['output']['I']       = 'true'
+config['output']['GE']      = 'true'
+config['output']['GI']      = 'true'
 with open(args.prefix + '/config.ini', 'w') as configfile:
     config.write(configfile)
 #========================================
+np.random.seed(0)
 
+# connectivity matrix
+# -------------------
 start = time.time()
-# generate type list;
-ty  = np.zeros(N)
-ty[np.random.choice(N, Ne, replace=False)] = 1
-finish = time.time()
-print('>> type list : %3.3f s' % (finish-start))
-
-start = time.time()
-# generate connecting matrix;
 mat = np.zeros((N, N))
 for i in range(N):
-    new_ty = np.delete(ty, i)
-    mat[i, np.random.choice(np.delete(np.arange(N), i)[new_ty == 1], int(K/2), replace=False)] = 1
-    mat[i, np.random.choice(np.delete(np.arange(N), i)[new_ty == 0], int(K/2), replace=False)] = 1
-    #mat[i, np.random.choice(np.delete(np.arange(N), i), K, replace=False)] = 1
+    if i < Ne:
+        mat[np.random.choice(np.delete(np.arange(Ne), i), int(K/2), replace=False), i] = 1
+        mat[np.random.choice(np.arange(Ne, N), int(K/2), replace=False), i] = 1
+    elif i >= Ne:
+        mat[np.random.choice(np.arange(Ne), int(K/2), replace=False), i] = 1
+        mat[np.random.choice(np.delete(np.arange(Ne, N), i-Ne), int(K/2), replace=False), i] = 1
+    #mat[np.random.choice(np.delete(np.arange(N), i), K, replace=False), i] = 1
+
 finish = time.time()
 print('>> adjacent matrix : %3.3f s' % (finish-start))
 
+#start = time.time()
+## regular network
+#mat = np.zeros((N,N))
+#for i in range(int(K/2)):
+#    mat += np.eye(N, k= i+1)
+#    mat += np.eye(N, k=-i-1)
+#finish = time.time()
+#print('>> adjacent matrix : %3.3f s' % (finish-start))
+
+# matrix of synaptic strength;
+# ----------------------------
 start = time.time()
-# generate matrix of synaptic strength;
 smat = np.zeros((N, N))
-for i in range(N):
-    if ty[i]:
-        con_list = mat[i]*ty
-        smat[i, con_list==1] = see
-        con_list = mat[i]*(1-ty)
-        smat[i, con_list==1] = sei
-    else:
-        con_list = mat[i]*ty
-        smat[i, con_list==1] = sie
-        con_list = mat[i]*(1-ty)
-        smat[i, con_list==1] = sii
+smat[0:Ne,0:Ne] = mat[0:Ne,0:Ne] * see
+smat[Ne:,0:Ne] = mat[Ne:,0:Ne] * sie
+smat[0:Ne,Ne:] = mat[0:Ne,Ne:] * sei
+smat[Ne:,Ne:] = mat[Ne:,Ne:] * sii
 finish = time.time()
 print('>> strength matrix : %3.3f s' % (finish-start))
 
 start = time.time()
-# generate poisson setting matrix
+# Poisson setting matrix
+# ----------------------
 pmat = np.zeros((N, 2))
-pmat[ty==1, 0] = pr_e
-pmat[ty==0, 0] = pr_i
-pmat[ty==1, 1] = ps_e
-pmat[ty==0, 1] = ps_i
+pmat[0:Ne, 0] = pr_e
+pmat[0:Ne, 1] = ps_e
+pmat[Ne:-1, 0] = pr_i
+pmat[Ne:-1, 1] = ps_i
+#print(select_list)
+#pmat[select_list, 0] *= 1
 finish = time.time()
 print('>> poisson setting : %3.3f s' % (finish-start))
 
 start = time.time()
-# generate coordinate matrix
+# coordinate matrix
+# -----------------
 grid_size = int(np.sqrt(N))
 x,y = np.meshgrid(range(grid_size),range(grid_size))
 x = (x+0.5)/grid_size
@@ -157,18 +168,16 @@ for i in range(grid_size):
 finish = time.time()
 print('>> coordinate matrix : %3.3f s' % (finish-start))
 
-#start = time.time()
-np.savetxt(args.prefix + config['neuron']['file'], ty, delimiter = ',', fmt = '%d')
-#finish = time.time()
-#print('>> output type list : %3.3f s' % (finish-start))
-#
+# save
+# ----
 #start = time.time()
 np.save(args.prefix + 'mat.npy', mat)
+#np.savetxt(args.prefix + 'net.txt', mat, fmt = '%d')
 #finish = time.time()
 #print('>> output adjacent matrix : %3.3f s' % (finish-start))
 #
 #start = time.time()
-np.savetxt(args.prefix + config['driving']['file'], pmat, delimiter = ',', fmt = '%.3f')
+np.savetxt(args.prefix + config['driving']['file'], pmat, delimiter = ',', fmt = '%.6f')
 #finish = time.time()
 #print('>> output poisson matrix : %3.3f s' % (finish-start))
 #

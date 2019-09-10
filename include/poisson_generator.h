@@ -19,6 +19,7 @@ class PoissonGenerator {
 		double last_poisson_time_;
 		bool output_flag_;
 		ofstream outfile_;
+		exponential_distribution<> exp_dis;
 	public:
 		PoissonGenerator() {
 			rate_								= 0.0;
@@ -31,7 +32,10 @@ class PoissonGenerator {
 		//	if (outfile_.is_open()) outfile_.close();
 		//}
 		
-		void SetRate(double rate_val) { rate_ = rate_val; }
+		void SetRate(double rate_val) { 
+			rate_ = rate_val; 
+			exp_dis = exponential_distribution<>(rate_);
+		}
 
 		void SetStrength(double strength_val) { strength_ = strength_val; }
 
@@ -42,6 +46,7 @@ class PoissonGenerator {
 
 		void Reset() {
 			rate_								= 0.0;
+			exp_dis = exponential_distribution<>();
 			strength_						= 0.0;
 			last_poisson_time_	= 0.0;
 			output_flag_ = false;

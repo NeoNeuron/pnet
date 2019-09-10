@@ -30,7 +30,11 @@ double NeuronalNetwork::SortSpikes(NeuronPopulation *neuron_pop, DymVals &dym_va
 			if (!tmp_spikes.empty()) {
 				ADD.index = id;
 				ADD.t = tmp_spikes.front();
-				ADD.type = neuron_pop->types_[id];
+				if (id < neuron_pop->Ne_) {
+					ADD.type = true;
+				} else {
+					ADD.type = false;
+				}
 				T.push_back(ADD);
 			}
 		}
