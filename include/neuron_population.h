@@ -2,7 +2,7 @@
 //	Copyright: Kyle Chen
 //	Author: Kyle Chen
 //	Date: 2019-06-09
-//	Description: define Struct SpikeElement and Class NeuronPopulation;
+//	Description: define Class NeuronPopulation;
 //***************
 #ifndef _NEURON_POPULATION_H_
 #define _NEURON_POPULATION_H_
@@ -11,33 +11,14 @@
 #include "neuron.h"
 #include "poisson_generator.h"
 #include "common_header.h"
-#include <boost/program_options.hpp>
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 namespace po = boost::program_options;
 
 using namespace std;
 
-struct SpikeElement {
-	int index;	// The sequence order of spikes within single time interval;
-	double t;		// exact spiking time;
-	bool type;	// The type of neuron that fired;
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> TyDymVals; 
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor> TyConMat; 
 
-	bool operator < (const SpikeElement &b) const
-  { return t < b.t; }
-  bool operator > (const SpikeElement &b) const
-  { return t > b.t; }
-  bool operator == (const SpikeElement &b) const
-  { return t == b.t && type == b.type; }
-};
-
-inline bool compSpikeElement(const SpikeElement &x, const SpikeElement &y) { return x < y; }
-//inline bool compSpikeElement(const SpikeElement &x, const SpikeElement &y) { return x.t < y.t; }
-
-typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> DymVals; 
-typedef Eigen::SparseMatrix<double, Eigen::ColMajor> ConMat; 
-
-inline double* GetPtr(DymVals &mat, int id) {
+inline double* GetPtr(TyDymVals &mat, int id) {
 	return mat.data() + id * mat.cols();
 }
 
@@ -51,7 +32,7 @@ class NeuronPopulation {
 		// Network Parameters:
 		int neuron_number_;		// number of the neurons in the group;
 		int Ne_;		// number of excitatory neurons;
-		DymVals dym_vals_;		// dynamic variables of neurons;
+		TyDymVals dym_vals_;		// dynamic variables of neurons;
 
 		// PoissonGenerators:
 		vector<PoissonGenerator> pgs_;
@@ -59,14 +40,15 @@ class NeuronPopulation {
 
 		// Network Structure:
 		bool is_con_;
-		ConMat s_mat_;									// matrix of inter-neuronal interacting strength;
+		TyConMat s_mat_;									// matrix of inter-neuronal interacting strength;
 		vector<vector<double> > delay_mat_;
 
 		// Network Inputs:
 		vector<queue<Spike> > ext_inputs_; // temp storage of external Poisson input;
+		TyNeuronalInputVec synaptic_drivens_;
+		//vector<vector<Spike> > synaptic_drivens_;
 
-		// Network data:
-		vector<vector<Spike> > synaptic_drivens_;
+		// Data output interface:
 		ofstream raster_file_;
 
 	//public:
@@ -97,6 +79,7 @@ class NeuronPopulation {
 			ext_inputs_.resize(neuron_number_);
 			synaptic_drivens_.resize(neuron_number_);
 		}
+		~NeuronPopulation() { delete neuron_sim_; }
 		
 		// INPUTS:
 		// Set interneuronal coupling strength;
@@ -118,6 +101,9 @@ class NeuronPopulation {
 
 		// Initialize interface for raster data;
 		void InitRasterOutput(string ras_path);
+		void CloseRasterOutput() {
+			raster_file_.close();	
+		}
 
 		// 	Input new spikes for neurons all together;
 		//void InNewSpikes(vector<vector<Spike> > &data);
@@ -129,7 +115,9 @@ class NeuronPopulation {
 		void InjectPoisson(double tmax);
 
 		//	Inject synaptic inputs, either feedforward or interneuronal ones, autosort after insertion;
-		void InjectSpike(Spike x, int id);
+		inline void InjectSpike(Spike x, int id) {
+			synaptic_drivens_[id].Inject(x);
+		}
 
 		//	NewSpike: record new spikes for id-th neurons which fire at t = t + dt;
 		void NewSpike(int id, double t, double spike_time);

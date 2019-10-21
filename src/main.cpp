@@ -6,7 +6,7 @@
 //*************************
 
 #include <chrono>
-#include "network.h"
+#include "network_simulator.h"
 using namespace std;
 
 mt19937 rand_gen(1);
@@ -105,7 +105,7 @@ int main(int argc, const char* argv[]) {
 	// Init raster output
 	string raster_path = dir + "raster.csv";
 	net.InitRasterOutput(raster_path);
-
+	
 	// SETUP DYNAMICS:
 	double t = 0, dt = vm["time.dt"].as<double>();
 	double tmax = vm["time.T"].as<double>();
@@ -139,10 +139,10 @@ int main(int argc, const char* argv[]) {
 	fflush(stdout);
 
 	start = chrono::system_clock::now();
-	NeuronalNetwork net_sim;
+	NetworkSimulatorSSC net_sim;
 	int progress = 0;
 	while (t < tmax) {
-		net_sim.UpdateNetworkState(&net, t, dt);
+		net_sim.UpdateState(&net, t, dt);
 		t += dt;
 		// Output temporal data;
 		if (abs(recording_rate*t - floor(recording_rate*t)) == 0) {

@@ -8,10 +8,12 @@
 #define _NEURON_H_
 
 #include "common_header.h"
+#include "poisson_generator.h"
 #include "math_helper.h"
 // Fast code for exp(x)
 #include "fmath.hpp"
 //#define exp(x) fmath::expd(x)
+
 
 template<typename T>
 inline T my_exp(const T &x)
@@ -25,21 +27,24 @@ inline double my_exp(const double &x)
 
 using namespace std;
 
-struct Spike {
-	bool type; // type of spike: true for excitation(AMPA), false for inhibition(GABA);
-	double t; // Exact spiking time;
-	double s; // strength of spikes;
-
-	bool operator < (const Spike &b) const
-  { return t < b.t; }
-  bool operator > (const Spike &b) const
-  { return t > b.t; }
-  bool operator == (const Spike &b) const
-  { return t == b.t && s == b.s; }
-};
-
-inline bool compSpike(const Spike &x, const Spike &y) { return x < y; }
-//inline bool compSpike(const Spike &x, const Spike &y) { return x.t < y.t; }
+//class ExtCurrentBase {
+//	public:
+//		virtual double GetI() const = 0;
+//		virtual ~ExtCurrentBase() {  }
+//};
+//
+//class SineCore {
+//	public:
+//		double f;		// in unit 1/ms
+//		double amplitude;
+//		SineCore() { 	}
+//		SineCore(double f_val, double amplitude_val)
+//			: f(f_val), amplitude(amplitude_val) {  }
+//		double GetI(double t) {
+//			return amplitude * sin(M_PI*t)
+//		}
+//
+//}
 
 // Neuron Base:
 class NeuronBase {
@@ -269,6 +274,127 @@ class LIF_GH_Model {
 		}
 };
 
+//// LIF_GH neuron with external current input.
+//template <class ExternalCurrent>
+//class LIF_GH_EXT_Model {
+//	public:
+//		// PARAMETERS:
+//		double tau_Er_ = 1.0;	// (ms) rising const for exc conductance;
+//		double tau_Ed_ = 2.0;	// (ms) decay  const for exc conductance;
+//		double tau_Ir_ = 1.0;	// (ms) rising const for inh conductance;
+//		double tau_Id_ = 10.0;	// (ms) decay  const for inh conductance;
+//		double g_m_ = 5e-2;		// (1/ms) normalized membrane conductance;
+//		double tau_ = 2.0;		// (ms) default refractory Period;
+//		double resting_potential_ = 0.0;
+//		double threshold_potential_ = 1.0;
+//		double excitatory_reversal_potential_ = 14.0 / 3.0;
+//		double inhibitory_reversal_potential_ = -2.0 / 3.0;
+//		
+//		// Temporal Setting:
+//		// Constant drive:
+//		double const_I = 0.0;
+//
+//		// excitatory and inhibitory conductance; evolve precisely with the given expression;
+//		static const int dym_n_ = 6;
+//		static const int id_v_  = 0;
+//		static const int id_gE_ = 1;
+//		static const int id_gI_ = 2;
+//		static const int id_hE_ = 3;
+//		static const int id_hI_ = 4;
+//		static const int id_tr_ = 5;
+//		static const int id_gE_inject_ = id_hE_;
+//		static const int id_gI_inject_ = id_hI_;
+//		// index of remaining refractory period time. if negative, remaining refractory period equals to zero;
+//		void GetDefaultDymVal(double* dym_val) const {
+//			dym_val[id_v_]  = 0.0;
+//			dym_val[id_gE_] = 0.0;
+//			dym_val[id_gI_] = 0.0;
+//			dym_val[id_hE_] = 0.0;
+//			dym_val[id_hI_] = 0.0;
+//			dym_val[id_tr_] = -1;
+//		}
+//
+//		// DYNAMICS:
+//		//
+//		//	Only update conductance after dt;
+//		//		g(t) = S * ( exp(-t/td) - exp(-t/tr) )
+//		//
+//		//	ODEs:
+//		//		g' = -1/td * g + h
+//		//		h' = -1/tr * h
+//		//	Solutions:
+//		//		g[t] = exp(-t/td)*g[0] + td*tr/(td-tr)*(exp(-t/td) - exp(-t/tr))*h[0]
+//		//		h[t] = exp(-t/tr)*h[0]
+//		//
+//		//	dym_val: dynamical variables;
+//		//	dt: time step;
+//		//	return: none;
+//		void UpdateG(double *dym_val, double dt) const {
+//			// excitatory
+//			double exp_r = my_exp(-dt / tau_Er_);
+//			double exp_d = my_exp(-dt / tau_Ed_);
+//			dym_val[id_gE_] = exp_d*dym_val[id_gE_] + (exp_d - exp_r)*tau_Ed_*tau_Er_/(tau_Ed_ - tau_Er_)*dym_val[id_hE_];
+//			dym_val[id_hE_] *= exp_r;
+//			// inhibitory
+//			exp_r = my_exp(-dt / tau_Ir_);
+//			exp_d = my_exp(-dt / tau_Id_);
+//			dym_val[id_gI_] = exp_d*dym_val[id_gI_] + (exp_d - exp_r)*tau_Id_*tau_Ir_/(tau_Id_ - tau_Ir_)*dym_val[id_hI_];
+//			dym_val[id_hI_] *= exp_r;
+//		}
+//
+//		// ODE govern the dynamic of IF neuron;
+//		// dym_val: dynamical variables;
+//		// return: dV/dt, the derivative of V;
+//		double GetDv(double *dym_val, t) const {
+//			return - g_m_ * (dym_val[id_v_] - resting_potential_)
+//				- dym_val[id_gE_] * (dym_val[id_v_] - excitatory_reversal_potential_)
+//				- dym_val[id_gI_] * (dym_val[id_v_] - inhibitory_reversal_potential_)
+//				+ const_I
+//				+ ExternalCurrent.GetI(t);
+//		}
+//		
+//		//	Update the conductance and membrane potential for t = [t_n, t_n + dt];
+//		//	Description: 4th-order Runge Kutta integration scheme is applied;
+//		//	*voltage: pointer of voltage, updated after excecution;
+//		//	dt: size of time step, unit ms;
+//		//	return: derivative of membrane potential at t = t(n);
+//		double DymInplaceRK4(double *dym_val, double t, double dt) const {
+//			double exp_Er = my_exp(-0.5 * dt / tau_Er_);
+//			double exp_Ed = my_exp(-0.5 * dt / tau_Ed_);
+//			double exp_Ir = my_exp(-0.5 * dt / tau_Ir_);
+//			double exp_Id = my_exp(-0.5 * dt / tau_Id_);
+//			double exp_E_comb = (exp_Ed - exp_Er)*tau_Ed_*tau_Er_/(tau_Ed_ - tau_Er_);
+//			double exp_I_comb = (exp_Id - exp_Ir)*tau_Id_*tau_Ir_/(tau_Id_ - tau_Ir_);
+//			// k1 = GetDv(t_n, v_n);
+//			// k2 = GetDv(t_n+1/2, v_n + k1*dt / 2);
+//			// k3 = GetDv(t_n+1/2, v_n + k2*dt / 2);
+//			// k4 = GetDv(t_n+1, v_n + k3*dt);
+//			// v_n+1 = v_n + dt/6*(k1 + 2*k2 + 2*k3 + k4);
+//			double v_n = dym_val[id_v_];
+//			double k1, k2, k3, k4;
+//			k1 = GetDv(dym_val, t);
+//			// Update G:
+//			dym_val[id_gE_] = exp_Ed * dym_val[id_gE_] + exp_E_comb*dym_val[id_hE_];
+//			dym_val[id_hE_] *= exp_Er;
+//			dym_val[id_gI_] = exp_Id * dym_val[id_gI_] + exp_I_comb*dym_val[id_hI_];
+//			dym_val[id_hI_] *= exp_Ir;
+//			dym_val[id_v_] = v_n + 0.5*k1*dt;
+//			k2 = GetDv(dym_val, t+dt/2);
+//			dym_val[id_v_] = v_n + 0.5*k2*dt;
+//			k3 = GetDv(dym_val, t+dt/2);
+//			// Update G:
+//			dym_val[id_gE_] = exp_Ed * dym_val[id_gE_] + exp_E_comb*dym_val[id_hE_];
+//			dym_val[id_hE_] *= exp_Er;
+//			dym_val[id_gI_] = exp_Id * dym_val[id_gI_] + exp_I_comb*dym_val[id_hI_];
+//			dym_val[id_hI_] *= exp_Ir;
+//			dym_val[id_v_] = v_n + k3*dt;
+//			k4 = GetDv(dym_val, t+dt);
+//			// Get v_n+1;
+//			dym_val[id_v_] = v_n + dt / 6 *(k1 + 2 * k2 + 2 * k3 + k4);
+//			return k1;
+//		}
+//};
+
 class LIF_I_Model {
 	public:
 		// PARAMETERS:
@@ -464,8 +590,8 @@ class NeuronSimulatorBase {
 		virtual void SetConstDrive(double const_I) = 0;
 		virtual void GetDefaultDymVal(double *dym_val) const = 0;
 		virtual double GetCurrent(double* dym_val) const = 0;
-		virtual double UpdateNeuronalState(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt, vector<double>& new_spikes) const = 0;
-		virtual void UpdateConductance(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt) const = 0;
+		virtual double UpdateNeuronalState(double *dym_val, TyNeuronalInput &synaptic_driven, double t, double dt, vector<double>& new_spikes) const = 0;
+		virtual void UpdateConductance(double *dym_val, TyNeuronalInput &synaptic_driven, double t, double dt) const = 0;
 		virtual ~NeuronSimulatorBase() {  }
 };
 
@@ -493,58 +619,61 @@ class NeuronSimulator : public Neuron, public NeuronSimulatorBase {
 		//	double dt: size of time step;
 		//	vector<double> new_spikes: new spikes generated during dt;
 		//	Return: membrane potential at t = t + dt;
-		double UpdateNeuronalState(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt, vector<double>& new_spikes) const override {
+		double UpdateNeuronalState(double *dym_val, TyNeuronalInput &synaptic_driven, double t, double dt, vector<double>& new_spikes) const override {
 			new_spikes.clear();
 			double tmax = t + dt;
 			double t_spike;
-			vector<Spike>::iterator s_begin = synaptic_driven.begin();
-			if (s_begin == synaptic_driven.end() || tmax <= s_begin->t) {
+			if (isnan(synaptic_driven.At().t) || synaptic_driven.At() >= tmax) {
 				t_spike = DymCore(dym_val, dt);
 				//cycle_ ++;
 				if (t_spike >= 0) new_spikes.push_back(t_spike);
 			} else {
-				if (t != s_begin->t) {
-					t_spike = DymCore(dym_val, s_begin->t - t);
+				if (synaptic_driven.At() != t) {
+					t_spike = DymCore(dym_val, synaptic_driven.At().t - t);
 					//cycle_ ++;
 					if (t_spike >= 0) new_spikes.push_back(t_spike);
 				}
-				for (vector<Spike>::iterator iter = s_begin; iter != synaptic_driven.end(); iter++) {
+				size_t iter = 0;
+				while (true) {
 					// Update conductance due to the synaptic inputs;
-					if (iter->type) dym_val[ GetIDGEInject() ] += iter->s;
-					else dym_val[ GetIDGIInject() ] += iter->s;
-					if (iter + 1 == synaptic_driven.end() || (iter + 1)->t >= tmax) {
-						t_spike = DymCore(dym_val, tmax - iter->t);
+					if (synaptic_driven.At(iter).type) dym_val[ GetIDGEInject() ] += synaptic_driven.At(iter).s;
+					else dym_val[ GetIDGIInject() ] += synaptic_driven.At(iter).s;
+					if (isnan(synaptic_driven.At(iter + 1).t) || synaptic_driven.At(iter + 1) >= tmax) {
+						t_spike = DymCore(dym_val, tmax - synaptic_driven.At(iter).t);
 						//cycle_ ++;
 						if (t_spike >= 0) new_spikes.push_back(t_spike);
 						break;
 					} else {
-						t_spike = DymCore(dym_val, (iter + 1)->t - iter->t);
+						t_spike = DymCore(dym_val, synaptic_driven.At(iter + 1).t - synaptic_driven.At(iter).t);
 						//cycle_ ++;
 						if (t_spike >= 0) new_spikes.push_back(t_spike);
 					}
+					iter ++;
 				}
 			}
 			return dym_val[Neuron::GetIDV()];
 		}
 
 		// Purely update conductances for fired neurons;
-		void UpdateConductance(double *dym_val, vector<Spike> &synaptic_driven, double t, double dt) const override {
+		void UpdateConductance(double *dym_val, TyNeuronalInput &synaptic_driven, double t, double dt) const override {
 			double tmax = t + dt;
-			if (synaptic_driven.empty() || tmax <= synaptic_driven.begin()->t) {
+			if (isnan(synaptic_driven.At().t) || synaptic_driven.At() >= tmax) {
 				UpdateSource(dym_val, dt);
 			} else {
-				if (t != synaptic_driven.begin()->t) {
-					UpdateSource(dym_val, synaptic_driven.begin()->t - t);
+				if (synaptic_driven.At() != t) {
+					UpdateSource(dym_val, synaptic_driven.At().t - t);
 				}
-				for (vector<Spike>::iterator iter = synaptic_driven.begin(); iter != synaptic_driven.end(); iter++) {
-					if (iter->type) dym_val[ GetIDGEInject() ] += iter->s;
-					else dym_val[ GetIDGIInject() ] += iter->s;
-					if (iter + 1 == synaptic_driven.end() || (iter + 1)->t >= tmax) {
-						UpdateSource(dym_val, tmax - iter->t);
+				size_t iter = 0;
+				while (true) {
+					if (synaptic_driven.At(iter).type) dym_val[ GetIDGEInject() ] += synaptic_driven.At(iter).s;
+					else dym_val[ GetIDGIInject() ] += synaptic_driven.At(iter).s;
+					if (isnan(synaptic_driven.At(iter + 1).t) || synaptic_driven.At(iter + 1) >= tmax) {
+						UpdateSource(dym_val, tmax - synaptic_driven.At(iter).t);
 						break;
 					} else {
-						UpdateSource(dym_val, (iter + 1)->t - iter->t);
+						UpdateSource(dym_val, synaptic_driven.At(iter + 1).t - synaptic_driven.At(iter).t);
 					}
+					iter ++;
 				}
 			}
 		}

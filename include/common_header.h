@@ -16,6 +16,9 @@
 #include <cstdio>
 #include <stdexcept>
 #include <omp.h>
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include <boost/program_options.hpp>
 
 extern std::mt19937 rand_gen;
 extern std::uniform_real_distribution<> rand_distribution;

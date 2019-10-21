@@ -97,7 +97,7 @@ void NeuronPopulation::InitRasterOutput(string ras_path) {
 //void NeuronPopulation::InNewSpikes(vector<vector<Spike> > & data) {
 //	for (int i = 0; i < neuron_number_; i++) {
 //		if (!data[i].empty()) {
-//			for (vector<Spike>::iterator it = data[i].begin(); it != data[i].end(); it++) {
+//			for (auto it = data[i].begin(); it != data[i].end(); it++) {
 //				neuron_sim_->InSpike(synaptic_drivens_[i], spike_trains_[i], *it);
 //			}
 //		}
@@ -108,50 +108,30 @@ void NeuronPopulation::InjectPoisson(double tmax) {
 	for (int i = 0; i < neuron_number_; i ++) {
 		if ( !ext_inputs_[i].empty() ) {
 			while ( ext_inputs_[i].front().t < tmax ) {
-				synaptic_drivens_[i].push_back( ext_inputs_[i].front() );
+				synaptic_drivens_[i].Inject( ext_inputs_[i].front() );
 				ext_inputs_[i].pop();
 				if ( ext_inputs_[i].empty() ) break;
 			}
-			sort(synaptic_drivens_[i].begin(), synaptic_drivens_[i].end(), compSpike);
-		}
-	}
-}
-
-void NeuronPopulation::InjectSpike(Spike x, int id) {
-	if (synaptic_drivens_[id].empty()) {
-		synaptic_drivens_[id].push_back(x);
-	} else {
-		if (synaptic_drivens_[id].back().t < x.t) {
-			synaptic_drivens_[id].push_back(x);
-		} else {
-			synaptic_drivens_[id].push_back(x);
-			sort(synaptic_drivens_[id].begin(), synaptic_drivens_[id].end(), compSpike);
 		}
 	}
 }
 
 void NeuronPopulation::NewSpike(int id, double t, double spike_time) {
-	raster_file_ << (int)id << ',' << setprecision(6) << (double)(t+spike_time) << '\n';
+	raster_file_ << (int)id << ',' << setprecision(18) << (double)(t+spike_time) << '\n';
 }
 
 void NeuronPopulation::NewSpike(int id, double t, vector<double>& spike_times) {
-	for (vector<double>::iterator it = spike_times.begin(); it != spike_times.end(); it ++) {
-		raster_file_ << (int)id << ',' << setprecision(6) << (double)(t+*it) << '\n';
+	for (auto it = spike_times.begin(); it != spike_times.end(); it ++) {
+		raster_file_ << (int)id << ',' << setprecision(18) << (double)(t+*it) << '\n';
 	}
 }
 
+// TODO: merge this step with updating function
 void NeuronPopulation::CleanUsedInputs(double tmax) {
-	// clean old synaptic driven;
-	int slen, j;
 	for (int i = 0; i < neuron_number_; i ++) {
-		if (!synaptic_drivens_[i].empty()) {
-			slen = synaptic_drivens_[i].size();
-			j = 0;
-			for (; j < slen; j ++) {
-				if (synaptic_drivens_[i][j].t >= tmax) break;
-			}
-			synaptic_drivens_[i].erase(synaptic_drivens_[i].begin(), synaptic_drivens_[i].begin() + j);
-		}
+		synaptic_drivens_[i].Move(tmax);
+		// clean old synaptic driven;
+		synaptic_drivens_[i].Clear();
 	}
 }
 

@@ -28,10 +28,10 @@ K  = 10    # connection degree
 N = Ne + Ni
 
 # interaction setting 
-Jee = 1.0e-1
-Jie = 1.0e-1
-Jei = 1.0e-1
-Jii = 1.0e-1
+Jee = 2.0e-2
+Jie = 2.0e-2
+Jei = 2.0e-2
+Jii = 2.0e-2
 
 see = Jee / np.sqrt(K)
 sie = Jie / np.sqrt(K)
@@ -39,10 +39,10 @@ sei = Jei / np.sqrt(K)
 sii = Jii / np.sqrt(K)
 
 # poisson setting
-pr_e = 10     # unit Hz
-pr_i = 10     # unit Hz
-ps_e = 3.0e-1     # 
-ps_i = 3.0e-1     # 
+pr_e = 23     # unit Hz
+pr_i = 23     # unit Hz
+ps_e = 1.0e-1     # 
+ps_i = 1.0e-1     # 
 
 # rescale poisson
 pr_e *= K/1000
@@ -50,6 +50,9 @@ pr_i *= K/1000
 ps_e /= np.sqrt(K)
 ps_i /= np.sqrt(K)
 
+# timing
+reps = 10
+T = 1e3
 # spatial location of neurons
 # currently using square grid
 
@@ -58,12 +61,12 @@ ps_i /= np.sqrt(K)
 config = MyConfigParser()
 #---
 config.add_section('network')
-config['network']['size']   = str(N) 
+config['network']['Ne']   = str(Ne) 
+config['network']['Ni']   = str(Ni) 
 #---
 config.add_section('neuron')
 config['neuron']['model']   = 'LIF_GH'
 config['neuron']['tref']    = '2.0'
-config['neuron']['file']    = 'ty_neu.csv'
 #---
 config.add_section('synapse')
 config['synapse']['file']   = 'smat.npy'
@@ -80,9 +83,9 @@ config['driving']['seed']   = '3'
 config['driving']['gmode']  = 'true'
 #---
 config.add_section('time')
-config['time']['T']         = '1e3'
+config['time']['T']         = str(T)
 config['time']['dt0']       = '0.5'
-config['time']['reps']      = '10'
+config['time']['reps']      = str(reps) 
 #---
 config.add_section('output')
 config['output']['poi']     = 'false'
@@ -91,50 +94,39 @@ with open(args.prefix + '/config.ini', 'w') as configfile:
 #========================================
 np.random.seed(0)
 
-start = time.time()
-# generate type list;
-ty  = np.zeros(N)
-ty[np.random.choice(N, Ne, replace=False)] = 1
-finish = time.time()
-print('>> type list : %3.3f s' % (finish-start))
 
-start = time.time()
 # generate connecting matrix;
+start = time.time()
 mat = np.zeros((N, N))
 for i in range(N):
     mat[i, np.random.choice(np.delete(np.arange(N), i), K, replace=False)] = 1
 finish = time.time()
 print('>> adjacent matrix : %3.3f s' % (finish-start))
 
+# matrix of synaptic strength;
+# ----------------------------
 start = time.time()
-# generate matrix of synaptic strength;
 smat = np.zeros((N, N))
-for i in range(N):
-    if ty[i]:
-        con_list = mat[i]*ty
-        smat[i, con_list==1] = see
-        con_list = mat[i]*(1-ty)
-        smat[i, con_list==1] = sei
-    else:
-        con_list = mat[i]*ty
-        smat[i, con_list==1] = sie
-        con_list = mat[i]*(1-ty)
-        smat[i, con_list==1] = sii
+smat[0:Ne,0:Ne] = mat[0:Ne,0:Ne] * see
+smat[Ne:,0:Ne] = mat[Ne:,0:Ne] * sie
+smat[0:Ne,Ne:] = mat[0:Ne,Ne:] * sei
+smat[Ne:,Ne:] = mat[Ne:,Ne:] * sii
 finish = time.time()
 print('>> strength matrix : %3.3f s' % (finish-start))
 
+# Poisson setting matrix
+# ----------------------
 start = time.time()
-# generate poisson setting matrix
 pmat = np.zeros((N, 2))
-pmat[ty==1, 0] = pr_e
-pmat[ty==0, 0] = pr_i
-pmat[ty==1, 1] = ps_e
-pmat[ty==0, 1] = ps_i
+pmat[0:Ne, 0] = pr_e
+pmat[0:Ne, 1] = ps_e
+pmat[Ne:-1, 0] = pr_i
+pmat[Ne:-1, 1] = ps_i
 finish = time.time()
 print('>> poisson setting : %3.3f s' % (finish-start))
 
-start = time.time()
 # generate coordinate matrix
+start = time.time()
 grid_size = int(np.sqrt(N))
 x,y = np.meshgrid(range(grid_size),range(grid_size))
 x = (x+0.5)/grid_size
@@ -150,13 +142,13 @@ finish = time.time()
 print('>> coordinate matrix : %3.3f s' % (finish-start))
 
 # saving config files
-np.savetxt(args.prefix + config['neuron']['file'], ty, delimiter = ',', fmt = '%d')
 np.save(args.prefix + 'mat.npy', mat)
 np.savetxt(args.prefix + config['driving']['file'], pmat, delimiter = ',', fmt = '%.6f')
 np.save(args.prefix + config['synapse']['file'], smat)
 np.savetxt(args.prefix + config['space']['file'], gd, delimiter = ',', fmt = '%.6f')
 
 
+subprocess.call(['rm', '-f', args.prefix + '/ras_*.csv'])
 
 subprocess.call(['bin/net_sim_test', '--prefix', args.prefix])
 
@@ -170,12 +162,16 @@ for i in range(shape[0]):
     dat[i] = np.array(st.unpack('d'*shape[1], f.read(8*shape[1])))
 f.close()
 # spikes
-dat_spike = np.genfromtxt(args.prefix + '/data_network_raster.csv', delimiter = ',')
-dat_spike = dat_spike[:,:-1]
+dat_spike = np.zeros(reps)
+for i in range(reps):
+    dat_spike_raw = np.genfromtxt(args.prefix + '/ras_' + str(i) + '.csv', delimiter = ',')
+    dat_spike[i] = dat_spike_raw[-1, 1]
+    print('>> Mean firing rate : %3.3f, last spike from Neuron %d' % ((dat_spike_raw.shape[0]*1.0/(Ne+Ni)/T*1e3), dat_spike_raw[-1,0]))
+
 dat = np.array([abs(x - dat[-1]) for x in dat[:-1]])
-dat_spike = np.array([abs(x - dat_spike[-1]) for x in dat_spike[:-1]])
+dat_spike = np.abs(dat_spike - dat_spike[-1])
 dat_mean = dat.mean(1)
-dat_spike_mean = dat_spike.mean(1)
+dat_spike_mean = dat_spike[:-1]
 
 # plot figure
 

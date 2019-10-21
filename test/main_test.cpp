@@ -4,7 +4,7 @@
 //	Date: 2019-05-08
 //	Description: test program for Class NeuronalNetwork;
 //***************
-#include "network.h"
+#include "network_simulator.h"
 using namespace std;
 
 mt19937 rand_gen(1);
@@ -23,11 +23,12 @@ int main(int argc, const char* argv[]) {
 	po::options_description config("Configs");
 	config.add_options()
 		// [network]
-		("network.size", po::value<int>(), "number of neurons")
+		("network.Ne", po::value<int>(), "number of E neurons")
+		("network.Ni", po::value<int>(), "number of I neurons")
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
 		("neuron.tref", po::value<double>(), "refractory period") 
-		("neuron.file", po::value<string>(), "file of neuronal types")
+
 		// [synapse]
 		("synapse.file", po::value<string>(), "file of synaptic strength")
 		// [space]
@@ -68,14 +69,17 @@ int main(int argc, const char* argv[]) {
 	//
 	// Network initialization
 	//
-	int neuron_number = vm["network.size"].as<int>();
-	NeuronPopulation net(vm["neuron.model"].as<string>(), neuron_number);
-	// initialize the network;
-	net.InitializeNeuronalType(vm);
+	int Ne = vm["network.Ne"].as<int>();
+	int Ni = vm["network.Ni"].as<int>();
+	int neuron_number = Ne + Ni; 
+	NeuronPopulation net(vm["neuron.model"].as<string>(), Ne, Ni);
 	// Set interneuronal coupling strength;
 	net.InitializeSynapticStrength(vm);
 	net.InitializeSynapticDelay(vm);
 	net.SetRef(vm["neuron.tref"].as<double>());
+
+	// Init raster output
+	string raster_path = dir + "raster.csv";
 
 	// SETUP DYNAMICS:
 	double t = 0, dt = vm["time.dt0"].as<double>();
@@ -96,35 +100,29 @@ int main(int argc, const char* argv[]) {
 	printf(">> Initialization : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
 	fflush(stdout);
 
-	NeuronalNetwork net_sim;
+	NetworkSimulatorSSC net_sim;
 	start = clock();
 	int spike_num;
 	vector<vector<double> > spike_trains;
 	vector<double> add_spike_train;
 	// Start loop;
 	for (int i = 0; i < reps; i++) {
+		net.InitRasterOutput(dir + "ras_" + to_string(i) + ".csv");
 		// Set driving_mode;
 		rand_gen.seed(vm["driving.seed"].as<int>());
 		net.InitializePoissonGenerator(vm);
 
 		while (t < tmax) {
-			net_sim.UpdateNetworkState(&net, t, dt);
+			net_sim.UpdateState(&net, t, dt);
 			t += dt;
 		}
 		net.OutPotential(file);
-		spike_num = net.OutSpikeTrains(spike_trains);
-		add_spike_train.clear();
-		// record the last spiking event;
-		for (int i = 0; i < spike_trains.size(); i ++) {
-			add_spike_train.insert(add_spike_train.end(), spike_trains[i].end() - 1, spike_trains[i].end());
-		}
-		Print1D(dir + "data_network_raster.csv", add_spike_train, "app", 0);
-		printf("[-] dt = %.2e s\tmean firing rate = %.2f Hz\n ", dt, spike_num*1000.0/tmax/neuron_number);
 		printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
 		net.RestoreNeurons();
 		t = 0;
 		dt /= 2;
 		NEURON_INTERACTION_TIME = 0;
+		net.CloseRasterOutput();
 	}	
 	finish = clock();
 	printf(">> Total simulation : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);	
