@@ -42,9 +42,7 @@ struct Spike {
   { return t != time; }
 };
 
-inline bool compSpike(const Spike &x, const Spike &y) { return x < y; }
-
-typedef priority_queue< Spike, std::vector<Spike>, std::greater<Spike> > SpikeQueue;
+typedef priority_queue<Spike, vector<Spike>, std::greater<Spike> > PoissonSeq;
 
 // Neuronal Inputs
 class TyNeuronalInput {
@@ -178,7 +176,40 @@ class PoissonGenerator {
 		// tmax: maximum time of Poisson sequence;
 		// synaptic_driven: container for new poisson spikes;
 		// return: none;
-		void GenerateNewPoisson( double tmax, queue<Spike>& poisson_driven );
+		void GenerateNewPoisson( bool type, double tmax, PoissonSeq & poisson_driven );
+
+};
+
+// Define a function template for external current input.
+// Temporarily supporting parametric current model.
+//class ExtCurrentBase {
+//	public:
+//		virtual const double GetI(double t, TyData &x) const = 0;
+//		virtual ~ExtCurrentBase() {  }
+//};
+
+class ZeroCore {
+	public:
+		typedef int TyData;
+		const double GetI(double t, TyData &x) const {
+			return 0.0;
+		}
+};
+
+class ConstantCore {
+	public:
+		typedef double TyData;
+		const double GetI(double t, TyData &x) const {
+			return x;
+		}
+};
+
+class SineCore {
+	public:
+		typedef double * TyData; // amplitude, frequency, phase
+		const double GetI(double t, TyData &x) const {
+			return x[0] * sin(x[1]*2*M_PI*t) + x[2];
+		}
 
 };
 

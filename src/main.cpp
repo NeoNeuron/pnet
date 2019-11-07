@@ -12,6 +12,7 @@ using namespace std;
 mt19937 rand_gen(1);
 uniform_real_distribution<> rand_distribution(0.0, 1.0);
 size_t NEURON_INTERACTION_TIME = 0;
+size_t SPIKE_NUMBER = 0;
 
 //	Simulation program for single network system;
 //	
@@ -45,9 +46,15 @@ int main(int argc, const char* argv[]) {
 		("space.speed", po::value<double>(), "transmitting speed of spikes")	
 		("space.file", po::value<string>(), "file of spatial location of neurons")
 		// [driving]
-		("driving.file", po::value<string>(), "file of Poisson settings")
+		("driving.file", po::value<string>()->default_value(""), "file of Poisson settings")
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
 		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
+		// [sine]
+		("sine.file", po::value<string>(), "file of external sine parameters")
+		//("sine.amplitude", po::value<vector<double> >()->multitoken(), "amplitude of external sine current")
+		//("sine.frequency", po::value<vector<double> >()->multitoken(), "kHz, frequency of external sine current")
+		//("sine.phase",     po::value<vector<double> >()->multitoken(), "phase of external sine current")
+		
 		// [time]
 		("time.T", po::value<double>(), "total simulation time")
 		("time.dt", po::value<double>(), "simulation time step")
@@ -92,19 +99,54 @@ int main(int argc, const char* argv[]) {
 	//
 	int Ne = vm["network.Ne"].as<int>();
 	int Ni = vm["network.Ni"].as<int>();
-	NeuronPopulation net(vm["neuron.model"].as<string>(), Ne, Ni);
+	//if (vm["neuron.model"].as<string>() == "LIF_GH") {
+	//}
+	NeuronPopulationBase * p_net = NULL;
+	//Ty_Neuron_Pop_LIF_GH_NO_EXT net(Ne, Ni);
+	if (vm["neuron.model"].as<string>() == "LIF_GH") {
+		p_net = new Ty_Neuron_Pop_LIF_GH_NO_EXT(Ne, Ni);
+	} else if (vm["neuron.model"].as<string>() == "LIF_GH_Sine") {
+		p_net = new NeuronPopulationSine(Ne, Ni);
+	}
 	// Set interneuronal coupling strength;
-	net.InitializeSynapticStrength(vm);
-	net.InitializeSynapticDelay(vm);
-	net.SetRef(vm["neuron.tref"].as<double>());
+	p_net->InitializeSynapticStrength(vm);
+	p_net->InitializeSynapticDelay(vm);
+	p_net->SetRef(vm["neuron.tref"].as<double>());
 
 	// Set driving_mode;
 	rand_gen.seed(vm["driving.seed"].as<int>());
-	net.InitializePoissonGenerator(vm);
+	p_net->InitializePoissonGenerator(vm);
 
 	// Init raster output
 	string raster_path = dir + "raster.csv";
-	net.InitRasterOutput(raster_path);
+	p_net->InitRasterOutput(raster_path);
+
+	if (vm["neuron.model"].as<string>() == "LIF_GH_Sine") {
+		auto p_net_sine = dynamic_cast<NeuronPopulationSine*>(p_net);
+		if (vm["sine.file"].as<string>() != "") {
+			vector<vector<double> > buff;
+			Read2D(vm["prefix"].as<string>() + vm["sine.file"].as<string>(), buff);
+			for (int i = 0; i < Ne + Ni; i ++) {
+				p_net_sine->SetSineAmplitude(i, buff[i][0]);
+				p_net_sine->SetSineFrequency(i, buff[i][1]);
+				p_net_sine->SetSinePhase(i, buff[i][2]);
+			}
+		}
+//			buff = vm["sine.amplitude"].as< vector<double> >();
+//			if (buff.size() == 1) {
+//				p_net_sine->SetSineAmplitude(buff[0]);
+//			}
+//			buff = vm["sine.frequency"].as< vector<double> >();
+//			if (buff.size() == 1) {
+//				p_net_sine->SetSineFrequency(buff[0]);
+//			}
+//			buff = vm["sine.phase"].as< vector<double> >();
+//			if (buff.size() == 1) {
+//				p_net_sine->SetSinePhase(buff[0]);
+//			}
+//		}
+	}
+
 	
 	// SETUP DYNAMICS:
 	double t = 0, dt = vm["time.dt"].as<double>();
@@ -142,14 +184,14 @@ int main(int argc, const char* argv[]) {
 	NetworkSimulatorSSC net_sim;
 	int progress = 0;
 	while (t < tmax) {
-		net_sim.UpdateState(&net, t, dt);
+		net_sim.UpdateState(p_net, t, dt);
 		t += dt;
 		// Output temporal data;
 		if (abs(recording_rate*t - floor(recording_rate*t)) == 0) {
-			if (v_flag) net.OutPotential(v_file);
-			if (i_flag) net.OutCurrent(i_file);
-			if (ge_flag) net.OutConductance(ge_file, true);
-			if (gi_flag) net.OutConductance(gi_file, false);
+			if (v_flag) p_net->OutPotential(v_file);
+			if (i_flag) p_net->OutCurrent(i_file);
+			if (ge_flag) p_net->OutConductance(ge_file, true);
+			if (gi_flag) p_net->OutConductance(gi_file, false);
 		}
 		if (floor(t / tmax * 100) > progress) {
 			progress = floor(t / tmax * 100);
@@ -158,6 +200,7 @@ int main(int argc, const char* argv[]) {
 		}
 	}
 	finish = chrono::system_clock::now();
+	p_net->CloseRasterOutput();
 
 	// delete files;
 	if (!v_flag) v_file.Remove();
@@ -172,6 +215,7 @@ int main(int argc, const char* argv[]) {
 	printf(">> Simulation : \t%3.3f s\n", elapsed_seconds.count());
 	
 	printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
+	printf("Mean firing rate : %5.2f Hz\n", (double)SPIKE_NUMBER/tmax*1000.0/(Ne+Ni));
 
 	return 0;
 }

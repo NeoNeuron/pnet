@@ -12,51 +12,33 @@
 #include "neuron_population.h"
 using namespace std;
 
-struct SpikeElement {
-	int index;	// The sequence order of spikes within single time interval;
-	double t;		// exact spiking time;
-	bool type;	// The type of neuron that fired;
-	SpikeElement() : index(-1), t(dnan), type(false) {	}
-	SpikeElement(int index_val, double t_val, bool type_val)
-	 : index(index_val), t(t_val), type(type_val) {  }
-
-	bool operator < (const SpikeElement &b) const
-  { return t < b.t; }
-  bool operator > (const SpikeElement &b) const
-  { return t > b.t; }
-  bool operator == (const SpikeElement &b) const
-  { return t == b.t && type == b.type; }
-};
-
 class NetworkSimulatorBase {
 	public:
-	virtual void UpdateState(NeuronPopulation *neuron_pop, double t, double dt) const = 0;
+	virtual void UpdateState(NeuronPopulationBase *neuron_pop, double t, double dt) const = 0;
 	virtual ~NetworkSimulatorBase() {  }
 };
 
 // TODO: numerical convergence need to be checked;
 class NetworkSimulatorSimple : public NetworkSimulatorBase {
 	public:
-		void UpdateState(NeuronPopulation *neuron_pop, double t, double dt) const override {
-			if ( !neuron_pop->pg_mode ) {
-				for (int i = 0; i < neuron_pop->neuron_number_; i ++) {
-					neuron_pop->pgs_[i].GenerateNewPoisson(t + dt, neuron_pop->ext_inputs_[i]);
-				}
+		void UpdateState(NeuronPopulationBase *neuron_pop, double t, double dt) const override {
+			if ( !neuron_pop->GetPoissonMode() ) {
+				neuron_pop->GeneratePoisosn(t+dt);
 			}
 			// inject poisson
 			neuron_pop->InjectPoisson(t + dt);
 
-			if (neuron_pop->is_con_) {
+			if (neuron_pop->GetIsCon()) {
 				vector<SpikeElement> T;
 				vector<int> update_list, fired_list;
-				for (int i = 0; i < neuron_pop->neuron_number_; i++) update_list.push_back(i);
+				for (int i = 0; i < neuron_pop->GetNeuronNumber(); i++) update_list.push_back(i);
 				//SortSpikes(neuron_pop, dym_vals_new, update_list, fired_list, t, dt, T);
 				
 				vector<double> tmp_spikes;
-				for (int i = 0; i < neuron_pop->neuron_number_; i++) {
-					neuron_pop->neuron_sim_->UpdateNeuronalState(GetPtr(neuron_pop->dym_vals_, i), neuron_pop->synaptic_drivens_[i], t, dt, tmp_spikes);
+				for (int i = 0; i < neuron_pop->GetNeuronNumber(); i++) {
+					neuron_pop->UpdateNeuronalState(true, i, t, dt, tmp_spikes);
 					for (auto it = tmp_spikes.begin(); it != tmp_spikes.end(); it++) {
-						if (i < neuron_pop->Ne_) {
+						if (i < neuron_pop->GetNe()) {
 							T.emplace_back(i, *it, true);
 						} else {
 							T.emplace_back(i, *it, false);
@@ -64,27 +46,24 @@ class NetworkSimulatorSimple : public NetworkSimulatorBase {
 					}
 				}
 
+				vector<int> post_ids;
 				for (auto iter = T.begin(); iter != T.end(); iter++ ) {
 					int IND = iter->index;
-					Spike ADD_mutual;
-					ADD_mutual.type = iter->type;
-					// erase used spiking events;
 					neuron_pop->NewSpike(IND, t, iter->t);
-					for (TyConMat::InnerIterator it(neuron_pop->s_mat_, IND); it; ++it) {
-						ADD_mutual.s = it.value();
-						// Force the interneuronal interaction to the end of the time step
-						ADD_mutual.t = t + dt + neuron_pop->delay_mat_[it.index()][IND];
-						neuron_pop->InjectSpike(ADD_mutual, it.index());
-						NEURON_INTERACTION_TIME ++;
-					}
+					iter->t += t;
+					neuron_pop->SynapticInteraction(*iter, post_ids);
 				}
 				neuron_pop->CleanUsedInputs(t + dt);
 			} else {
-				vector<vector<double> > new_spikes(neuron_pop->neuron_number_);
+				vector<vector<double> > new_spikes(neuron_pop->GetNeuronNumber());
 				#pragma omp parallel for
-				for (int i = 0; i < neuron_pop->neuron_number_; i++) {
-					neuron_pop->neuron_sim_->UpdateNeuronalState(GetPtr(neuron_pop->dym_vals_, i), neuron_pop->synaptic_drivens_[i], t, dt, new_spikes[i]);
-					if ( !new_spikes[i].empty() ) neuron_pop->NewSpike(i, t, new_spikes[i]);
+				for (size_t i = 0; i < neuron_pop->GetNeuronNumber(); i++) {
+					neuron_pop->UpdateNeuronalState(true, i, t, dt, new_spikes[i]);
+					if ( !new_spikes[i].empty() ) {
+						for (size_t j = 0; j < new_spikes[i].size(); j ++) {
+							neuron_pop->NewSpike(i, t, new_spikes[i][j]);
+						}
+					}
 				}
 				neuron_pop->CleanUsedInputs(t + dt);
 			}
@@ -100,21 +79,22 @@ class NetworkSimulatorSSC : public NetworkSimulatorBase {
 			return false;
 		}
 		// Sort spikes within single time interval, and return the time of first spike;
-		double SortSpikes(NeuronPopulation *neuron_pop, TyDymVals &dym_vals_new, vector<int> &update_list, vector<int> &fired_list, double t, double dt, vector<SpikeElement> &T) const {
+		double SortSpikes(NeuronPopulationBase *neuron_pop, vector<int> &update_list, vector<int> &fired_list, double t, double dt, vector<SpikeElement> &T) const {
 			vector<double> tmp_spikes;
 			// start scanning;
 			double id;
+			int dym_n = neuron_pop->GetDymN();
 			for (int i = 0; i < update_list.size(); i++) {
 				id = update_list[i];
 				// Check whether id's neuron is in the fired list;
 				if (CheckExist(id, fired_list)) {
-					memcpy(GetPtr(dym_vals_new, id)+1, GetPtr(neuron_pop->dym_vals_, id)+1, sizeof(double)*(neuron_pop->dym_n_-2));
-					neuron_pop->neuron_sim_->UpdateConductance(GetPtr(dym_vals_new,id), neuron_pop->synaptic_drivens_[id], t, dt);
+					memcpy(neuron_pop->GetTmpPtr(id)+1, neuron_pop->GetDymPtr(id)+1, sizeof(double)*(dym_n-2));
+					neuron_pop->UpdateConductance(false, id, t, dt);
 				} else {
-					memcpy(GetPtr(dym_vals_new, id), GetPtr(neuron_pop->dym_vals_, id), sizeof(double)*neuron_pop->dym_n_);
-					neuron_pop->neuron_sim_->UpdateNeuronalState(GetPtr(dym_vals_new, id), neuron_pop->synaptic_drivens_[id], t, dt, tmp_spikes);
+					memcpy(neuron_pop->GetTmpPtr(id), neuron_pop->GetDymPtr(id), sizeof(double)*dym_n);
+					neuron_pop->UpdateNeuronalState(false, id, t, dt, tmp_spikes);
 					if (!tmp_spikes.empty()) {
-						if (id < neuron_pop->Ne_) {
+						if (id < neuron_pop->GetNe()) {
 							T.emplace_back(id, tmp_spikes.front(), true);
 						} else {
 							T.emplace_back(id, tmp_spikes.front(), false);
@@ -134,57 +114,56 @@ class NetworkSimulatorSSC : public NetworkSimulatorBase {
 
 	public:
 		//	Update network state:
-		void UpdateState(NeuronPopulation *neuron_pop, double t, double dt) const override {
-			if ( !neuron_pop->pg_mode ) {
-				for (int i = 0; i < neuron_pop->neuron_number_; i ++) {
-					neuron_pop->pgs_[i].GenerateNewPoisson(t + dt, neuron_pop->ext_inputs_[i]);
-				}
+		void UpdateState(NeuronPopulationBase *neuron_pop, double t, double dt) const override {
+			if ( !neuron_pop->GetPoissonMode() ) {
+				neuron_pop->GeneratePoisosn(t+dt);
 			}
 			// inject poisson
 			neuron_pop->InjectPoisson(t + dt);
 
-			if (neuron_pop->is_con_) {
-				TyDymVals dym_vals_new(neuron_pop->neuron_number_, neuron_pop->dym_n_);
-				memcpy(dym_vals_new.data(), neuron_pop->dym_vals_.data(), sizeof(double)*neuron_pop->neuron_number_*neuron_pop->dym_n_);
+			if (neuron_pop->GetIsCon()) {
+				neuron_pop->BackupDymVal();
 				vector<SpikeElement> T;
 				double newt;
 				// Creating updating pool;
 				vector<int> update_list, fired_list;
-				for (int i = 0; i < neuron_pop->neuron_number_; i++) update_list.push_back(i);
-				newt = SortSpikes(neuron_pop, dym_vals_new, update_list, fired_list, t, dt, T);
+				for (int i = 0; i < neuron_pop->GetNeuronNumber(); i++) update_list.push_back(i);
+				newt = SortSpikes(neuron_pop, update_list, fired_list, t, dt, T);
 				while (newt > 0) {
 					update_list.clear();
 					int IND = (T.front()).index;
 					fired_list.push_back(IND);
-					Spike ADD_mutual;
-					ADD_mutual.type = (T.front()).type;
+					vector<int> post_ids;
+					neuron_pop->NewSpike(IND, t, newt);
+					T.front().t += t;
+					neuron_pop->SynapticInteraction(T.front(), post_ids);
 					// erase used spiking events;
 					T.erase(T.begin());
-					neuron_pop->NewSpike(IND, t, newt);
-					for (TyConMat::InnerIterator it(neuron_pop->s_mat_, IND); it; ++it) {
-						ADD_mutual.s = it.value();
-						ADD_mutual.t = t + newt + neuron_pop->delay_mat_[it.index()][IND];
-						neuron_pop->InjectSpike(ADD_mutual, it.index());
-						NEURON_INTERACTION_TIME ++;
-						update_list.push_back(it.index());
-						// Check whether this neuron appears in the firing list T;
+						
+					// Check whether this neuron appears in the firing list T;
+					for (size_t i = 0; i < post_ids.size(); i++) {
 						for (int k = 0; k < T.size(); k ++) {
-							if (it.index() == T[k].index) {
+							if (post_ids[i] == T[k].index) {
 								T.erase(T.begin() + k);
 								break;
 							}
 						}
 					}
-					newt = SortSpikes(neuron_pop, dym_vals_new, update_list, fired_list, t, dt, T);
+					update_list.insert(update_list.end(), post_ids.begin(), post_ids.end());
+					newt = SortSpikes(neuron_pop, update_list, fired_list, t, dt, T);
 				}
-				memcpy(neuron_pop->dym_vals_.data(), dym_vals_new.data(), sizeof(double)*neuron_pop->neuron_number_*neuron_pop->dym_n_);
+				neuron_pop->UpdateDymVal();
 				neuron_pop->CleanUsedInputs(t + dt);
 			} else {
-				vector<vector<double> > new_spikes(neuron_pop->neuron_number_);
+				vector<vector<double> > new_spikes(neuron_pop->GetNeuronNumber());
 				#pragma omp parallel for
-				for (int i = 0; i < neuron_pop->neuron_number_; i++) {
-					neuron_pop->neuron_sim_->UpdateNeuronalState(GetPtr(neuron_pop->dym_vals_, i), neuron_pop->synaptic_drivens_[i], t, dt, new_spikes[i]);
-					if ( !new_spikes[i].empty() ) neuron_pop->NewSpike(i, t, new_spikes[i]);
+				for (size_t i = 0; i < neuron_pop->GetNeuronNumber(); i++) {
+					neuron_pop->UpdateNeuronalState(true, i, t, dt, new_spikes[i]);
+					if ( !new_spikes[i].empty() ) {
+						for (size_t j = 0; j < new_spikes[i].size(); j ++) {
+							neuron_pop->NewSpike(i, t, new_spikes[i][j]);
+						}
+					}
 				}
 				neuron_pop->CleanUsedInputs(t + dt);
 			}
