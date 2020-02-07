@@ -1,29 +1,34 @@
-# ignore executable files
-bin/*
+# ignore compiling folders
+bin
+obj
+dep
+lib
+build
+
+# ignore building files
 *.out
-
-# ignore c/c++ objective files
-obj/*
 *.o
-
-# ignore prerequisite dependence files
-dep/*
 *.d
 
 # ignore documentation files
-doc/*
-
-# ignore data files
-dat/*
+doc
 
 # ignore tmp files
-tmp/*
+tmp
 
 # ignore python lib object
 *.pyc
 
-# ignore folder config file
+# ignore system-wide config file
 .DS_Store
+*.swp
+*.json
 
 # ignore INI-like config files
 *.ini
+
+# ignore figures
+*.png
+*.jpg
+*.jpeg
+*.eps

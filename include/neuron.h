@@ -1,9 +1,9 @@
-//******************************
+// ==============================
 //	Copyright: Kyle Chen
 //	Author: Kyle Chen
 //	Description: Define base class of Neuron model and Neuron simulator, structure Spike;
-//	Date: 2019-05-05
-//******************************
+//	Created: 2017-03-08
+// ==============================
 #ifndef _NEURON_H_
 #define _NEURON_H_
 

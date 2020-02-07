@@ -73,18 +73,22 @@ void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
 	}
 	bool poisson_output = vm["output.poi"].as<bool>();
 	for (int i = 0; i < neuron_number_; i++) {
-		pgs_[i].SetRate(poisson_settings[i][0]);
-		pgs_[i].SetStrength(poisson_settings[i][1]);
+    pge_[i].SetRate(poisson_settings[i][0]);
+    pge_[i].SetStrength(poisson_settings[i][1]);
+    pgi_[i].SetRate(poisson_settings[i][2]);
+    pgi_[i].SetStrength(poisson_settings[i][3]);
 		if (poisson_output) {
-			pgs_[i].SetOuput( vm["prefix"].as<string>() + "pg" + to_string(i) + ".csv" );
+      pge_[i].SetOuput( vm["prefix"].as<string>() + "pge" + to_string(i) + ".csv" );
+      pgi_[i].SetOuput( vm["prefix"].as<string>() + "pgi" + to_string(i) + ".csv" );
 		}
 	}
 	pg_mode = vm["driving.gmode"].as<bool>();
 
 	if ( pg_mode ) {
-		for (int i = 0; i < neuron_number_; i ++) {
-			pgs_[i].GenerateNewPoisson( vm["time.T"].as<double>(), ext_inputs_[i] );
-		}
+    for (int i = 0; i < neuron_number_; i ++) {
+      pge_[i].GenerateNewPoisson( true,  vm["time.T"].as<double>(), ext_inputs_[i] );
+      pgi_[i].GenerateNewPoisson( false, vm["time.T"].as<double>(), ext_inputs_[i] );
+    }
 	}
 }
 
@@ -105,19 +109,23 @@ void NeuronPopulation::InitRasterOutput(string ras_path) {
 //}
 
 void NeuronPopulation::InjectPoisson(double tmax) {
-	for (int i = 0; i < neuron_number_; i ++) {
-		if ( !ext_inputs_[i].empty() ) {
-			while ( ext_inputs_[i].front().t < tmax ) {
-				synaptic_drivens_[i].Inject( ext_inputs_[i].front() );
-				ext_inputs_[i].pop();
-				if ( ext_inputs_[i].empty() ) break;
-			}
-		}
-	}
+  for (int i = 0; i < neuron_number_; i ++) {
+    if ( !ext_inputs_[i].empty() ) {
+      while ( ext_inputs_[i].top().t < tmax ) {
+        InjectSpike(ext_inputs_[i].top(), i);
+        ext_inputs_[i].pop();
+        if ( ext_inputs_[i].empty() ) break;
+      }
+    }
+  }
 }
 
 void NeuronPopulation::NewSpike(int id, double t, double spike_time) {
-	raster_file_ << (int)id << ',' << setprecision(18) << (double)(t+spike_time) << '\n';
+  raster_file_ << (int)id << ',' << setprecision(18) << (double)(t+spike_time) << '\n';
+  SPIKE_NUMBER ++;
+  if (t+spike_time==dnan) {
+    printf("Invalid spike time with neuron ID = %d, t = %f, SPIKE_NUMBER = %ld\n", id, t, SPIKE_NUMBER);
+  }
 }
 
 void NeuronPopulation::NewSpike(int id, double t, vector<double>& spike_times) {
@@ -138,7 +146,8 @@ void NeuronPopulation::CleanUsedInputs(double tmax) {
 void NeuronPopulation::RestoreNeurons() {
 	for (int i = 0; i < neuron_number_; i++) {
 		neuron_sim_->GetDefaultDymVal(GetPtr(dym_vals_, i));
-		pgs_[i].Reset();
+    pge_[i].Reset();
+    pgi_[i].Reset();
 	}
 	ext_inputs_.clear();
 	ext_inputs_.resize(neuron_number_);

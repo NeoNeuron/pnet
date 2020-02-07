@@ -12,6 +12,7 @@ using namespace std;
 mt19937 rand_gen(1);
 uniform_real_distribution<> rand_distribution(0.0, 1.0);
 size_t NEURON_INTERACTION_TIME = 0;
+size_t SPIKE_NUMBER = 0;
 
 //	Simulation program for single network system;
 //	
@@ -45,7 +46,7 @@ int main(int argc, const char* argv[]) {
 		("space.speed", po::value<double>(), "transmitting speed of spikes")	
 		("space.file", po::value<string>(), "file of spatial location of neurons")
 		// [driving]
-		("driving.file", po::value<string>(), "file of Poisson settings")
+		("driving.file", po::value<string>()->default_value(""), "file of Poisson settings")
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
 		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
 		// [time]
@@ -158,6 +159,7 @@ int main(int argc, const char* argv[]) {
 		}
 	}
 	finish = chrono::system_clock::now();
+  net.CloseRasterOutput();
 
 	// delete files;
 	if (!v_flag) v_file.Remove();
@@ -172,6 +174,7 @@ int main(int argc, const char* argv[]) {
 	printf(">> Simulation : \t%3.3f s\n", elapsed_seconds.count());
 	
 	printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
+	printf("Mean firing rate : %5.2f Hz\n", (double)SPIKE_NUMBER/tmax*1000.0/(Ne+Ni));
 
 	return 0;
 }

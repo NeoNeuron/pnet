@@ -117,11 +117,15 @@ print('>> strength matrix : %3.3f s' % (finish-start))
 # Poisson setting matrix
 # ----------------------
 start = time.time()
-pmat = np.zeros((N, 2))
+pmat = np.zeros((N, 4))
 pmat[0:Ne, 0] = pr_e
 pmat[0:Ne, 1] = ps_e
+pmat[0:Ne, 2] = 0.0
+pmat[0:Ne, 3] = 0.0
 pmat[Ne:-1, 0] = pr_i
 pmat[Ne:-1, 1] = ps_i
+pmat[Ne:-1, 2] = 0.0
+pmat[Ne:-1, 3] = 0.0
 finish = time.time()
 print('>> poisson setting : %3.3f s' % (finish-start))
 

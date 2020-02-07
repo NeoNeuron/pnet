@@ -10,6 +10,7 @@ using namespace std;
 mt19937 rand_gen(1);
 uniform_real_distribution<> rand_distribution(0.0, 1.0);
 size_t NEURON_INTERACTION_TIME = 0;
+size_t SPIKE_NUMBER = 0;
 
 int main(int argc, const char* argv[]) {
 	clock_t start, finish;
@@ -102,7 +103,6 @@ int main(int argc, const char* argv[]) {
 
 	NetworkSimulatorSSC net_sim;
 	start = clock();
-	int spike_num;
 	vector<vector<double> > spike_trains;
 	vector<double> add_spike_train;
 	// Start loop;

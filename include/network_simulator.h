@@ -12,22 +12,6 @@
 #include "neuron_population.h"
 using namespace std;
 
-struct SpikeElement {
-	int index;	// The sequence order of spikes within single time interval;
-	double t;		// exact spiking time;
-	bool type;	// The type of neuron that fired;
-	SpikeElement() : index(-1), t(dnan), type(false) {	}
-	SpikeElement(int index_val, double t_val, bool type_val)
-	 : index(index_val), t(t_val), type(type_val) {  }
-
-	bool operator < (const SpikeElement &b) const
-  { return t < b.t; }
-  bool operator > (const SpikeElement &b) const
-  { return t > b.t; }
-  bool operator == (const SpikeElement &b) const
-  { return t == b.t && type == b.type; }
-};
-
 class NetworkSimulatorBase {
 	public:
 	virtual void UpdateState(NeuronPopulation *neuron_pop, double t, double dt) const = 0;
@@ -40,7 +24,8 @@ class NetworkSimulatorSimple : public NetworkSimulatorBase {
 		void UpdateState(NeuronPopulation *neuron_pop, double t, double dt) const override {
 			if ( !neuron_pop->pg_mode ) {
 				for (int i = 0; i < neuron_pop->neuron_number_; i ++) {
-					neuron_pop->pgs_[i].GenerateNewPoisson(t + dt, neuron_pop->ext_inputs_[i]);
+					neuron_pop->pge_[i].GenerateNewPoisson(true, t + dt, neuron_pop->ext_inputs_[i]);
+					neuron_pop->pgi_[i].GenerateNewPoisson(false, t + dt, neuron_pop->ext_inputs_[i]);
 				}
 			}
 			// inject poisson
@@ -137,7 +122,8 @@ class NetworkSimulatorSSC : public NetworkSimulatorBase {
 		void UpdateState(NeuronPopulation *neuron_pop, double t, double dt) const override {
 			if ( !neuron_pop->pg_mode ) {
 				for (int i = 0; i < neuron_pop->neuron_number_; i ++) {
-					neuron_pop->pgs_[i].GenerateNewPoisson(t + dt, neuron_pop->ext_inputs_[i]);
+					neuron_pop->pge_[i].GenerateNewPoisson(true, t + dt, neuron_pop->ext_inputs_[i]);
+					neuron_pop->pgi_[i].GenerateNewPoisson(false, t + dt, neuron_pop->ext_inputs_[i]);
 				}
 			}
 			// inject poisson

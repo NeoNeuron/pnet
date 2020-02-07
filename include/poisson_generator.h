@@ -1,9 +1,9 @@
-//#############################################################
+// =========================================
 // Copyright: Kyle Chen
 // Author: Kyle Chen
 // Description: Module of Poisson Generators
-// Date: 2018-12-13
-//#############################################################
+// Created: 2018-12-13
+// =========================================
 #ifndef _POISSON_GENERATOR_H_
 #define _POISSON_GENERATOR_H_
 
@@ -42,9 +42,7 @@ struct Spike {
   { return t != time; }
 };
 
-inline bool compSpike(const Spike &x, const Spike &y) { return x < y; }
-
-typedef priority_queue< Spike, std::vector<Spike>, std::greater<Spike> > SpikeQueue;
+typedef priority_queue< Spike, std::vector<Spike>, std::greater<Spike> > PoissonSeq;
 
 // Neuronal Inputs
 class TyNeuronalInput {
@@ -175,10 +173,11 @@ class PoissonGenerator {
 		}
 
 		// Generate new Poisson series and export to synpatic_driven; autosort after generatation if synaptic delay is nonzero;
-		// tmax: maximum time of Poisson sequence;
-		// synaptic_driven: container for new poisson spikes;
+		// type: true for excitatory spike, false for inhibitory spike;
+    // tmax: maximum time of Poisson sequence;
+    // poisson_driven: container for new poisson spikes;
 		// return: none;
-		void GenerateNewPoisson( double tmax, queue<Spike>& poisson_driven );
+		void GenerateNewPoisson( bool type, double tmax, PoissonSeq & poisson_driven );
 
 };
 

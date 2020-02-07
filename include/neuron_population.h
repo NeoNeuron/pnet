@@ -1,9 +1,9 @@
-//***************
-//	Copyright: Kyle Chen
-//	Author: Kyle Chen
-//	Date: 2019-06-09
-//	Description: define Class NeuronPopulation;
-//***************
+// ===============
+//  Copyright: Kyle Chen
+//  Author: Kyle Chen
+//  Created: 2019-06-09
+//  Description: define Class NeuronPopulation;
+// ===============
 #ifndef _NEURON_POPULATION_H_
 #define _NEURON_POPULATION_H_
 
@@ -14,6 +14,22 @@
 namespace po = boost::program_options;
 
 using namespace std;
+
+struct SpikeElement {
+  int index;  // The sequence order of spikes within single time interval;
+  double t;   // exact spiking time;
+  bool type;  // The type of neuron that fired;
+  SpikeElement() : index(-1), t(dnan), type(false) {  }
+  SpikeElement(int index_val, double t_val, bool type_val)
+   : index(index_val), t(t_val), type(type_val) {  }
+
+  bool operator < (const SpikeElement &b) const
+  { return t < b.t; }
+  bool operator > (const SpikeElement &b) const
+  { return t > b.t; }
+  bool operator == (const SpikeElement &b) const
+  { return t == b.t && type == b.type; }
+};
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> TyDymVals; 
 typedef Eigen::SparseMatrix<double, Eigen::ColMajor> TyConMat; 
@@ -35,7 +51,8 @@ class NeuronPopulation {
 		TyDymVals dym_vals_;		// dynamic variables of neurons;
 
 		// PoissonGenerators:
-		vector<PoissonGenerator> pgs_;
+    vector<PoissonGenerator> pge_;
+    vector<PoissonGenerator> pgi_;
 		bool pg_mode;
 
 		// Network Structure:
@@ -44,9 +61,9 @@ class NeuronPopulation {
 		vector<vector<double> > delay_mat_;
 
 		// Network Inputs:
-		vector<queue<Spike> > ext_inputs_; // temp storage of external Poisson input;
+		//vector<queue<Spike> > ext_inputs_; // temp storage of external Poisson input;
+    vector<PoissonSeq> ext_inputs_;     // temp storage of external Poisson input;
 		TyNeuronalInputVec synaptic_drivens_;
-		//vector<vector<Spike> > synaptic_drivens_;
 
 		// Data output interface:
 		ofstream raster_file_;
@@ -71,7 +88,8 @@ class NeuronPopulation {
 			for (int i = 0; i < neuron_number_; i++) {
 				neuron_sim_->GetDefaultDymVal(GetPtr(dym_vals_, i));
 			}
-			pgs_.resize(neuron_number_);
+      pge_.resize(neuron_number_);
+      pgi_.resize(neuron_number_);
 			// Network structure:
 			is_con_ = false;
 			s_mat_.resize(neuron_number_, neuron_number_);
