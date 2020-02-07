@@ -24,8 +24,8 @@ int main(int argc, const char* argv[]) {
 	po::options_description config("Configs");
 	config.add_options()
 		// [network]
-		("network.Ne", po::value<int>(), "number of E neurons")
-		("network.Ni", po::value<int>(), "number of I neurons")
+		("network.ne", po::value<int>(), "number of Excitatory neurons")
+		("network.ni", po::value<int>(), "number of Inhibitory neurons")
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
 		("neuron.tref", po::value<double>(), "refractory period") 
@@ -42,7 +42,7 @@ int main(int argc, const char* argv[]) {
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
 		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
 		// [time]
-		("time.T", po::value<double>(), "total simulation time")
+		("time.t", po::value<double>(), "total simulation time")
 		("time.dt0", po::value<double>(), "initial time step")
 		("time.reps", po::value<int>(), "repeating times")
 		// [output]
@@ -70,8 +70,8 @@ int main(int argc, const char* argv[]) {
 	//
 	// Network initialization
 	//
-	int Ne = vm["network.Ne"].as<int>();
-	int Ni = vm["network.Ni"].as<int>();
+	int Ne = vm["network.ne"].as<int>();
+	int Ni = vm["network.ni"].as<int>();
 	int neuron_number = Ne + Ni; 
 	NeuronPopulation net(vm["neuron.model"].as<string>(), Ne, Ni);
 	// Set interneuronal coupling strength;
@@ -84,7 +84,7 @@ int main(int argc, const char* argv[]) {
 
 	// SETUP DYNAMICS:
 	double t = 0, dt = vm["time.dt0"].as<double>();
-	double tmax = vm["time.T"].as<double>();
+	double tmax = vm["time.t"].as<double>();
 	int reps = vm["time.reps"].as<int>();
 	// Define the shape of data;
 	size_t shape[2];

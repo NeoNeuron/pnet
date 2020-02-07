@@ -23,21 +23,22 @@ size_t SPIKE_NUMBER = 0;
 int main(int argc, const char* argv[]) {
 	auto start = chrono::system_clock::now();
 	// Config program options:
-	po::options_description desc("All Options");
-	desc.add_options()
+  bool verbose;
+	po::options_description generic("All Options");
+	generic.add_options()
 		("help,h", "produce help message")
-		("config", "detailed message for config file")
-		("prefix", po::value<string>()->default_value("./"), "prefix of output files")
-		("config-file,c", po::value<string>()->default_value("config.ini"), "config file")
+		("prefix,p", po::value<string>()->default_value("./"), "prefix of output files")
+		("config,c", po::value<string>(), "config file, relative to prefix")
+    ("verbose,v", po::bool_switch(&verbose), "show output")
 		;
 	po::options_description config("Configs");
 	config.add_options()
 		// [network]
-		("network.Ne", po::value<int>(), "number of E neurons")
-		("network.Ni", po::value<int>(), "number of I neurons")
+		("network.ne", po::value<int>(), "number of Excitatory neurons")
+		("network.ni", po::value<int>(), "number of Inhibitory neurons")
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
-		("neuron.tref", po::value<double>(), "refractory period") 
+		("neuron.tref", po::value<double>()->default_value(2.0), "refractory period") 
 		// [synapse]
 		("synapse.file", po::value<string>(), "file of synaptic strength")
 		// [space]
@@ -50,24 +51,24 @@ int main(int argc, const char* argv[]) {
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
 		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
 		// [time]
-		("time.T", po::value<double>(), "total simulation time")
+		("time.t", po::value<double>(), "total simulation time")
 		("time.dt", po::value<double>(), "simulation time step")
 		("time.stp", po::value<double>(), "sampling time step")
 		// [output]
 		("output.poi", po::value<bool>()->default_value(false), "output flag of Poisson Drive")
-		("output.V", po::value<bool>()->default_value(false), "output flag of V")
-		("output.I", po::value<bool>()->default_value(false), "output flag of I")
-		("output.GE", po::value<bool>()->default_value(false), "output flag of GE")
-		("output.GI", po::value<bool>()->default_value(false), "output flag of GI")
+		("output.v", po::value<bool>()->default_value(false), "output flag of V")
+		("output.i", po::value<bool>()->default_value(false), "output flag of I")
+		("output.ge", po::value<bool>()->default_value(false), "output flag of GE")
+		("output.gi", po::value<bool>()->default_value(false), "output flag of GI")
 		;
+  po::options_description cml_options, config_file_options;
+  cml_options.add(generic).add(config);
+  config_file_options.add(config);
 	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::store(po::parse_command_line(argc, argv, cml_options), vm);
 	po::notify(vm);
 	if (vm.count("help")) {
-		cout << desc << '\n';
-		return 1;
-	}
-	if (vm.count("config")) {
+		cout << generic << '\n';
 		cout << config << '\n';
 		return 1;
 	}
@@ -77,22 +78,21 @@ int main(int argc, const char* argv[]) {
 
 	// Loading config.ini:
 	ifstream config_file;
-	if (vm.count("config-file")) {
-		string cfname = vm["prefix"].as<string>() + vm["config-file"].as<string>();
-		config_file.open(cfname.c_str());
-	} else {
-		cout << "lack of config file\n";
-		return -1;
+	if (vm.count("config")) {
+    string cfname = vm["prefix"].as<string>() + vm["config"].as<string>();
+    config_file.open(cfname.c_str());
+    po::store(po::parse_config_file(config_file, config), vm);
+    po::notify(vm);
+    if (verbose) {
+      cout << ">> Configs loaded.\n";
+    }
 	}
-	po::store(po::parse_config_file(config_file, config), vm);
-	po::notify(vm);
-	cout << ">> Configs loaded.\n";
 
 	//
 	// Network initialization
 	//
-	int Ne = vm["network.Ne"].as<int>();
-	int Ni = vm["network.Ni"].as<int>();
+	int Ne = vm["network.ne"].as<int>();
+	int Ni = vm["network.ni"].as<int>();
 	NeuronPopulation net(vm["neuron.model"].as<string>(), Ne, Ni);
 	// Set interneuronal coupling strength;
 	net.InitializeSynapticStrength(vm);
@@ -109,7 +109,7 @@ int main(int argc, const char* argv[]) {
 	
 	// SETUP DYNAMICS:
 	double t = 0, dt = vm["time.dt"].as<double>();
-	double tmax = vm["time.T"].as<double>();
+	double tmax = vm["time.t"].as<double>();
 	double recording_rate = 1.0 / vm["time.stp"].as<double>();
 	// Define the shape of data;
 	size_t shape[2];
@@ -118,10 +118,10 @@ int main(int argc, const char* argv[]) {
 
 	// Define file-outputing flags;
 	bool v_flag, i_flag, ge_flag, gi_flag;
-	v_flag = vm["output.V"].as<bool>();
-	i_flag = vm["output.I"].as<bool>();
-	ge_flag = vm["output.GE"].as<bool>();
-	gi_flag = vm["output.GI"].as<bool>();
+	v_flag = vm["output.v"].as<bool>();
+	i_flag = vm["output.i"].as<bool>();
+	ge_flag = vm["output.ge"].as<bool>();
+	gi_flag = vm["output.gi"].as<bool>();
 
 	// Create file-write objects;
 	FILEWRITE v_file(dir + "V.bin", "trunc");
@@ -136,8 +136,10 @@ int main(int argc, const char* argv[]) {
 
 	auto finish = chrono::system_clock::now();
 	chrono::duration<double> elapsed_seconds = finish-start;
-	printf(">> Initialization : \t%3.3f s\n", elapsed_seconds.count());
-	fflush(stdout);
+  if (verbose) {
+    printf(">> Initialization : \t%3.3f s\n", elapsed_seconds.count());
+    fflush(stdout);
+  }
 
 	start = chrono::system_clock::now();
 	NetworkSimulatorSSC net_sim;
@@ -152,11 +154,13 @@ int main(int argc, const char* argv[]) {
 			if (ge_flag) net.OutConductance(ge_file, true);
 			if (gi_flag) net.OutConductance(gi_file, false);
 		}
-		if (floor(t / tmax * 100) > progress) {
-			progress = floor(t / tmax * 100);
-			printf(">> Running ... %d%%\r", progress);
-			fflush(stdout);
-		}
+    if (verbose) {
+      if (floor(t / tmax * 100) > progress) {
+        progress = floor(t / tmax * 100);
+        printf(">> Running ... %d%%\r", progress);
+        fflush(stdout);
+      }
+    }
 	}
 	finish = chrono::system_clock::now();
   net.CloseRasterOutput();
@@ -167,14 +171,16 @@ int main(int argc, const char* argv[]) {
 	if (!ge_flag) ge_file.Remove();
 	if (!gi_flag) gi_file.Remove();
 	
-	printf(">> Done!             \n");
+  if (verbose) {
+    printf(">> Done!             \n");
+  }
 	//net.PrintCycle();
 	
 	elapsed_seconds = finish-start;
-	printf(">> Simulation : \t%3.3f s\n", elapsed_seconds.count());
-	
-	printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
-	printf("Mean firing rate : %5.2f Hz\n", (double)SPIKE_NUMBER/tmax*1000.0/(Ne+Ni));
-
+  if (verbose) {
+    printf(">> Simulation : \t%3.3f s\n", elapsed_seconds.count());
+    printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
+    printf("Mean firing rate : %5.2f Hz\n", (double)SPIKE_NUMBER/tmax*1000.0/(Ne+Ni));
+  }
 	return 0;
 }

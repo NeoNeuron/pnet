@@ -20,15 +20,17 @@ void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
   auto s_arr = cnpy::npy_load(sfname.c_str());
   double* s_vals = s_arr.data<double>();
   int counter = 0;
-  for (size_t i = 0; i < neuron_number_; i ++) {
-    for (size_t j = 0; j < neuron_number_; j ++) {
+  for (int i = 0; i < neuron_number_; i ++) {
+    for (int j = 0; j < neuron_number_; j ++) {
       if (s_vals[counter] > 0) T_list.push_back(T(i,j,s_vals[counter]));
       counter += 1;
 		}
 	}
 	s_mat_.setFromTriplets(T_list.begin(), T_list.end());
 	s_mat_.makeCompressed();
-	printf("(number of connections in sparse-mat %d)\n", (int)s_mat_.nonZeros());
+  if (vm["verbose"].as<bool>()) {
+    printf("(number of connections in sparse-mat %d)\n", (int)s_mat_.nonZeros());
+  }
 	if (s_mat_.nonZeros()) is_con_ = true;
 }
 
@@ -88,8 +90,8 @@ void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
 
 	if ( pg_mode ) {
     for (int i = 0; i < neuron_number_; i ++) {
-      pge_[i].GenerateNewPoisson( true,  vm["time.T"].as<double>(), ext_inputs_[i] );
-      pgi_[i].GenerateNewPoisson( false, vm["time.T"].as<double>(), ext_inputs_[i] );
+      pge_[i].GenerateNewPoisson( true,  vm["time.t"].as<double>(), ext_inputs_[i] );
+      pgi_[i].GenerateNewPoisson( false, vm["time.t"].as<double>(), ext_inputs_[i] );
     }
 	}
 }

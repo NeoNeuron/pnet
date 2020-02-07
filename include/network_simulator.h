@@ -79,7 +79,7 @@ class NetworkSimulatorSimple : public NetworkSimulatorBase {
 class NetworkSimulatorSSC : public NetworkSimulatorBase {
 	private:
 		bool CheckExist(int index, vector<int> &list) const {
-			for (int i = 0; i < list.size(); i ++) {
+			for (size_t i = 0; i < list.size(); i ++) {
 				if (list[i] == index) return true;
 			}
 			return false;
@@ -89,7 +89,7 @@ class NetworkSimulatorSSC : public NetworkSimulatorBase {
 			vector<double> tmp_spikes;
 			// start scanning;
 			double id;
-			for (int i = 0; i < update_list.size(); i++) {
+			for (size_t i = 0; i < update_list.size(); i++) {
 				id = update_list[i];
 				// Check whether id's neuron is in the fired list;
 				if (CheckExist(id, fired_list)) {
@@ -154,7 +154,7 @@ class NetworkSimulatorSSC : public NetworkSimulatorBase {
 						NEURON_INTERACTION_TIME ++;
 						update_list.push_back(it.index());
 						// Check whether this neuron appears in the firing list T;
-						for (int k = 0; k < T.size(); k ++) {
+						for (size_t k = 0; k < T.size(); k ++) {
 							if (it.index() == T[k].index) {
 								T.erase(T.begin() + k);
 								break;
