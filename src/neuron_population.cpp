@@ -5,8 +5,7 @@
 //	Date: 2019-06-09
 //******************************
 #include "neuron_population.h"
-#include <xtensor/xarray.hpp>
-#include <xtensor/xnpy.hpp>
+#include <cnpy.h>
 
 using namespace std;
 
@@ -18,10 +17,13 @@ void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
 	typedef Eigen::Triplet<double> T;
 	vector<T> T_list;
 	string sfname = vm["prefix"].as<string>() + vm["synapse.file"].as<string>();
-	auto s_vals = xt::load_npy<double>(sfname.c_str());
-	for (size_t i = 0; i < neuron_number_; i ++) {
-		for (size_t j = 0; j < neuron_number_; j ++) {
-			if (s_vals(i,j) > 0) T_list.push_back(T(i,j,s_vals(i,j)));
+  auto s_arr = cnpy::npy_load(sfname.c_str());
+  double* s_vals = s_arr.data<double>();
+  int counter = 0;
+  for (size_t i = 0; i < neuron_number_; i ++) {
+    for (size_t j = 0; j < neuron_number_; j ++) {
+      if (s_vals[counter] > 0) T_list.push_back(T(i,j,s_vals[counter]));
+      counter += 1;
 		}
 	}
 	s_mat_.setFromTriplets(T_list.begin(), T_list.end());

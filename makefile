@@ -1,9 +1,9 @@
 # define compiler and path of libs
 #CPPFLAGS = --std=c++11 -Wall -I $(DIR_INC) -Xpreprocessor -fopenmp 
-CPPFLAGS = --std=c++14 -Wall -I $(DIR_INC)
+CPPFLAGS = --std=c++11 -Wall -I $(DIR_INC)
 CXXFLAGS = -g -O2
 #LDLIBS = -lboost_program_options -lomp
-LDLIBS = -lboost_program_options
+LDLIBS = -L $(DIR_LD) -Wl,-rpath,$(DIR_LD) -lboost_program_options -lcnpy
 # define variable path
 DIR_SRC = src
 DIR_INC = include
@@ -11,7 +11,7 @@ DIR_BIN = bin
 DIR_OBJ = obj
 DIR_DEP = dep
 DIR_TEST = test
-#PATH_TO_EIGEN = /usr/local/Cellar/eigen/3.3.7/include/eigen3/
+DIR_LD = lib
 DIRS = $(DIR_BIN) $(DIR_DEP) $(DIR_OBJ)
 vpath %.cpp $(DIR_SRC)
 vpath %.cpp $(DIR_TEST)
