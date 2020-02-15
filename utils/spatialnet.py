@@ -25,7 +25,7 @@ def gridmat(N, shape = None, order = True, seed = None):
     """
     if shape is None:
         gd_size = int(np.sqrt(N))
-        X,Y = np.meshgrid(range(gd_size),range(gd_size))
+        X,Y = np.meshgrid(np.arange(gd_size, dtype=float),np.arange(gd_size, dtype=float))
         X = X / gd_size
         Y = Y / gd_size
         if order:
@@ -39,7 +39,7 @@ def gridmat(N, shape = None, order = True, seed = None):
             return X, Y
     else:
         if shape[0]*shape[1] >= N:
-            X,Y = np.meshgrid(range(shape[0]),range(shape[1]))
+            X,Y = np.meshgrid(np.arange(shape[0], dtype=float),np.arange(shape[1], dtype=float))
             X = X / max(shape)
             Y = Y / max(shape)
             if order:
@@ -53,3 +53,7 @@ def gridmat(N, shape = None, order = True, seed = None):
                 return X, Y
         else:
             print("ERROR : (%d,%d) grid cannot containing %d neurons (nodes)." % (shape[0], shape[1], N))
+
+def gen_delay_matrix(grid, weight):
+    from scipy.spatial.distance import cdist
+    return weight * cdist(grid, grid, metric='euclidean')

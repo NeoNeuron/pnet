@@ -42,9 +42,6 @@ int main(int argc, const char* argv[]) {
 		// [synapse]
 		("synapse.file", po::value<string>(), "file of synaptic strength")
 		// [space]
-		("space.mode", po::value<int>()->default_value(-1), "delay mode:\n0: external defined distance-dependent delay\n1: homogeneous delay\n-1: no delay")
-		("space.delay", po::value<double>()->default_value(0.0), "synaptic delay time")
-		("space.speed", po::value<double>(), "transmitting speed of spikes")	
 		("space.file", po::value<string>(), "file of spatial location of neurons")
 		// [driving]
 		("driving.file", po::value<string>()->default_value(""), "file of Poisson settings")

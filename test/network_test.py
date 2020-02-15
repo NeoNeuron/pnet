@@ -6,6 +6,9 @@ import struct as st
 import argparse
 import configparser as cp
 import time
+import sys
+sys.path.append('./utils/')
+import spatialnet as sn
 
 parser = argparse.ArgumentParser(description = "generate required network architecture")
 parser.add_argument('prefix', type=str, default='./', help = 'directory of source data and output data')
@@ -13,6 +16,7 @@ args = parser.parse_args()
 #========================================
 
 #network setting
+model = 'LIF_GH'
 Ne = 80   # No. of exc neuron
 Ni = 20    # No. of inh neuron
 K  = 10    # connection degree
@@ -20,10 +24,10 @@ K  = 10    # connection degree
 N = Ne + Ni
 
 # interaction setting 
-Jee = 5.0e-2
-Jie = 5.0e-2
-Jei = 3.0e-1
-Jii = 3.0e-1
+Jee = 2.0e-2
+Jie = 2.0e-2
+Jei = 2.0e-2
+Jii = 2.0e-2
 
 see = Jee / np.sqrt(K)
 sie = Jie / np.sqrt(K)
@@ -63,21 +67,18 @@ config['network']['ne']   = str(Ne)
 config['network']['ni']   = str(Ni) 
 #---
 config.add_section('neuron')
-config['neuron']['model']   = 'LIF_GH'
+config['neuron']['model']   = model
 config['neuron']['tref']    = '2.0'
 #---
 config.add_section('synapse')
 config['synapse']['file']   = 'smat.npy'
 #---
 config.add_section('space')
-config['space']['mode']     = '1'
-config['space']['delay']    = '0.0'
-config['space']['speed']    = '1.0'
-config['space']['file']     = 'coordinate.csv'
+config['space']['file']     = 'dmat.npy'
 #---
 config.add_section('driving')
 config['driving']['file']   = 'PoissonSetting.csv'
-config['driving']['seed']   = '3'
+config['driving']['seed']   = '2'
 config['driving']['gmode']  = 'true'
 #---
 config.add_section('time')
@@ -134,13 +135,8 @@ grid_size = int(np.sqrt(N))
 x,y = np.meshgrid(range(grid_size),range(grid_size))
 x = (x+0.5)/grid_size
 y = (y+0.5)/grid_size
-gd = np.empty((N,2))
-counter = 0
-for i in range(grid_size):
-    for j in range(grid_size):
-        gd[counter][0]=x[i,j]
-        gd[counter][1]=y[i,j]
-        counter += 1
+gd = np.vstack( (x.flatten(), y.flatten()) ).T
+dmat = sn.gen_delay_matrix(gd, 0.0)
 finish = time.time()
 print('>> coordinate matrix : %3.3f s' % (finish-start))
 
@@ -148,7 +144,7 @@ print('>> coordinate matrix : %3.3f s' % (finish-start))
 np.save(args.prefix + 'mat.npy', mat)
 np.savetxt(args.prefix + config['driving']['file'], pmat, delimiter = ',', fmt = '%.6f')
 np.save(args.prefix + config['synapse']['file'], smat)
-np.savetxt(args.prefix + config['space']['file'], gd, delimiter = ',', fmt = '%.6f')
+np.save(args.prefix + config['space']['file'], dmat)
 
 
 subprocess.call(['rm', '-f', args.prefix + '/ras_*.csv'])

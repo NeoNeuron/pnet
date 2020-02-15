@@ -114,7 +114,7 @@ class NetworkSimulatorSimple : public NetworkSimulatorBase {
 					for (TyConMat::InnerIterator it(neuron_pop->s_mat_, IND); it; ++it) {
 						ADD_mutual.s = it.value();
 						// Force the interneuronal interaction to the end of the time step
-						ADD_mutual.t = t + dt + neuron_pop->delay_mat_[it.index()][IND];
+						ADD_mutual.t = t + dt + neuron_pop->delay_mat_(it.index(), IND);
 						neuron_pop->InjectSpike(ADD_mutual, it.index());
 						NEURON_INTERACTION_TIME ++;
 					}
@@ -191,7 +191,7 @@ class NetworkSimulatorSSC : public NetworkSimulatorSimple {
             neuron_pop->NewSpike(IND, t, newt);
             for (TyConMat::InnerIterator it(neuron_pop->s_mat_, IND); it; ++it) {
               ADD_mutual.s = it.value();
-              ADD_mutual.t = t + newt + neuron_pop->delay_mat_[it.index()][IND];
+              ADD_mutual.t = t + newt + neuron_pop->delay_mat_(it.index(), IND);
               neuron_pop->InjectSpike(ADD_mutual, it.index());
               NEURON_INTERACTION_TIME ++;
               update_list.push_back(it.index());

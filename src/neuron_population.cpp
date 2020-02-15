@@ -35,29 +35,10 @@ void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
 }
 
 void NeuronPopulation::InitializeSynapticDelay(po::variables_map &vm) {
-	int space_mode = vm["space.mode"].as<int>();
-	if (space_mode == 0) {
-		vector<vector<double> > coordinates;
-		Read2D(vm["prefix"].as<string>() + vm["space.file"].as<string>(), coordinates);
-		SetDelay(coordinates, vm["space.speed"].as<double>());
-	} else if (space_mode == 1) {
-		delay_mat_.clear();
-		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, vm["space.delay"].as<double>()));
-	} else if (space_mode == -1) {
-		delay_mat_.clear();
-		delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
-	}
-}
-
-void NeuronPopulation::SetDelay(vector<vector<double> > &coordinates, double speed) {
-	double meta_dis;
-	for (int i = 0; i < neuron_number_; i ++) {
-		for (int j = 0; j < i; j ++) {
-			meta_dis = L2(coordinates[i], coordinates[j]) / speed;
-			delay_mat_[i][j] = meta_dis;
-			delay_mat_[j][i] = meta_dis;
-		}
-	}
+	string sfname = vm["prefix"].as<string>() + vm["space.file"].as<string>();
+  auto s_arr = cnpy::npy_load(sfname.c_str());
+  double* s_vals = s_arr.data<double>();
+	memcpy(delay_mat_.data(), s_vals, sizeof(double)*neuron_number_*neuron_number_);
 }
 
 void NeuronPopulation::SetRef(double t_ref) {

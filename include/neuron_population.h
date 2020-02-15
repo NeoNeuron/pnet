@@ -2,7 +2,7 @@
 //  Copyright: Kyle Chen
 //  Author: Kyle Chen
 //  Created: 2019-06-09
-//  Description: define Class NeuronPopulation;
+//  Description: define template class NeuronPopulation;
 // ===============
 #ifndef _NEURON_POPULATION_H_
 #define _NEURON_POPULATION_H_
@@ -12,8 +12,6 @@
 #include "poisson_generator.h"
 #include "common_header.h"
 namespace po = boost::program_options;
-
-using namespace std;
 
 struct SpikeElement {
   int index;  // The sequence order of spikes within single time interval;
@@ -51,18 +49,19 @@ class NeuronPopulation {
 		TyDymVals dym_vals_;		// dynamic variables of neurons;
 
 		// PoissonGenerators:
-    vector<PoissonGenerator> pge_;
-    vector<PoissonGenerator> pgi_;
+    std::vector<PoissonGenerator> pge_;
+    std::vector<PoissonGenerator> pgi_;
 		bool pg_mode;
 
 		// Network Structure:
 		bool is_con_;
 		TyConMat s_mat_;									// matrix of inter-neuronal interacting strength;
-		vector<vector<double> > delay_mat_;
+    typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> TyDelayMatrix;
+    TyDelayMatrix delay_mat_;
 
 		// Network Inputs:
 		//vector<queue<Spike> > ext_inputs_; // temp storage of external Poisson input;
-    vector<PoissonSeq> ext_inputs_;     // temp storage of external Poisson input;
+    std::vector<PoissonSeq> ext_inputs_;     // temp storage of external Poisson input;
 		TyNeuronalInputVec synaptic_drivens_;
 
 		// Data output interface:
@@ -70,7 +69,7 @@ class NeuronPopulation {
 
 	//public:
 		// Neuronal network initialization:
-		NeuronPopulation(string neuron_type, int Ne, int Ni) {
+		NeuronPopulation(std::string neuron_type, int Ne, int Ni) {
 			// Network Parameters:
 			if (neuron_type == "LIF_G") {
 				neuron_sim_ = new LIF_G();
@@ -94,7 +93,7 @@ class NeuronPopulation {
 			// Network structure:
 			is_con_ = false;
 			s_mat_.resize(neuron_number_, neuron_number_);
-			delay_mat_.resize(neuron_number_, vector<double>(neuron_number_, 0.0));
+			delay_mat_ = TyDelayMatrix::Zero(neuron_number_, neuron_number_);
 			ext_inputs_.resize(neuron_number_);
 			synaptic_drivens_.resize(neuron_number_);
 		}
@@ -105,10 +104,8 @@ class NeuronPopulation {
 		void InitializeSynapticStrength(po::variables_map &vm);
 		// Initialize the delay of synaptic interaction;
 		void InitializeSynapticDelay(po::variables_map &vm);
+    // TODO: improve the accuracy for large delay period in convergence test.
 		
-		// Set interaction delay between neurons;
-		void SetDelay(vector<vector<double> > &coordinates, double speed);
-
 		// Set time period of refractory:
 		void SetRef(double t_ref);
 
@@ -119,13 +116,13 @@ class NeuronPopulation {
 		void InitializePoissonGenerator(po::variables_map &vm);
 
 		// Initialize interface for raster data;
-		void InitRasterOutput(string ras_path);
+		void InitRasterOutput(std::string ras_path);
 		void CloseRasterOutput() {
 			raster_file_.close();	
 		}
 
 		// 	Input new spikes for neurons all together;
-		//void InNewSpikes(vector<vector<Spike> > &data);
+		//void InNewSpikes(std::vector<std::vector<Spike> > &data);
 
 		// DYNAMICS:
 		// Inject Poisson sequence from ext_inputs_ to synaptic_drivens_, autosort after generatation if synaptic delay is nonzero;
@@ -140,7 +137,7 @@ class NeuronPopulation {
 
 		//	NewSpike: record new spikes for id-th neurons which fire at t = t + dt;
 		void NewSpike(int id, double t, double spike_time);
-		void NewSpike(int id, double t, vector<double>& spike_times);
+		void NewSpike(int id, double t, std::vector<double>& spike_times);
 		void NewSpike(double t, std::vector<SpikeElement>& spikes);
 
 		// Clean used synaptic inputs:
@@ -163,7 +160,7 @@ class NeuronPopulation {
 		void OutCurrent(FILEWRITE& file);
 
 		// Save connectivity matrix
-		void SaveConMat(string connecting_matrix_file);
+		void SaveConMat(std::string connecting_matrix_file);
 
 		int GetNeuronNumber();
 
