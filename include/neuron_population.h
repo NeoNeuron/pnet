@@ -42,7 +42,7 @@ inline double* GetPtr(TyDymVals &mat, int id) {
 class NeuronPopulation {
 	public:
 		// Neuron Simulators:
-		NeuronSimulatorBase *neuron_sim_ = NULL;
+		NeuronBase *neuron_sim_ = NULL;
 		int dym_n_;
 	
 		// Network Parameters:
@@ -73,14 +73,15 @@ class NeuronPopulation {
 		NeuronPopulation(string neuron_type, int Ne, int Ni) {
 			// Network Parameters:
 			if (neuron_type == "LIF_G") {
-				neuron_sim_ = new Sim_LIF_G();
+				neuron_sim_ = new LIF_G();
 			} else if (neuron_type == "LIF_GH") {
-				neuron_sim_ = new Sim_LIF_GH();
+				neuron_sim_ = new LIF_GH();
 			} else if (neuron_type == "LIF_I") {
-				neuron_sim_ = new Sim_LIF_I();
+				neuron_sim_ = new LIF_I();
 			} else {
 				throw runtime_error("ERROR: wrong neuron type");
 			}
+
 			dym_n_ = neuron_sim_->GetDymNum();
 			Ne_ = Ne;
 			neuron_number_ = Ne + Ni;
@@ -140,6 +141,7 @@ class NeuronPopulation {
 		//	NewSpike: record new spikes for id-th neurons which fire at t = t + dt;
 		void NewSpike(int id, double t, double spike_time);
 		void NewSpike(int id, double t, vector<double>& spike_times);
+		void NewSpike(double t, std::vector<SpikeElement>& spikes);
 
 		// Clean used synaptic inputs:
 		void CleanUsedInputs(double tmax);

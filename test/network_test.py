@@ -7,14 +7,6 @@ import argparse
 import configparser as cp
 import time
 
-# rewrite the configparser.ConfigParser
-class MyConfigParser(cp.ConfigParser):
-    def __init__(self,defaults=None):
-        cp.ConfigParser.__init__(self,defaults=None)
-    def optionxform(self, optionstr):
-        return optionstr
-#---------------------
-
 parser = argparse.ArgumentParser(description = "generate required network architecture")
 parser.add_argument('prefix', type=str, default='./', help = 'directory of source data and output data')
 args = parser.parse_args()
@@ -28,10 +20,10 @@ K  = 10    # connection degree
 N = Ne + Ni
 
 # interaction setting 
-Jee = 2.0e-2
-Jie = 2.0e-2
-Jei = 2.0e-2
-Jii = 2.0e-2
+Jee = 5.0e-2
+Jie = 5.0e-2
+Jei = 3.0e-1
+Jii = 3.0e-1
 
 see = Jee / np.sqrt(K)
 sie = Jie / np.sqrt(K)
@@ -56,13 +48,19 @@ T = 1e3
 # spatial location of neurons
 # currently using square grid
 
+# print the estimated value of EPSPs and IPSPs
+print('see : %f ( %3.3f mV)' % (see, see*100*(1/1-1/2)))
+print('sie : %f ( %3.3f mV)' % (sie, sie*100*(1/1-1/2)))
+print('sei : %f (-%3.3f mV)' % (sei, sei*100/7*(1/1-1/10)))
+print('sii : %f (-%3.3f mV)' % (sii, sii*100/7*(1/1-1/10)))
+
 #========================================
 # generate config file
-config = MyConfigParser()
+config = cp.ConfigParser()
 #---
 config.add_section('network')
-config['network']['Ne']   = str(Ne) 
-config['network']['Ni']   = str(Ni) 
+config['network']['ne']   = str(Ne) 
+config['network']['ni']   = str(Ni) 
 #---
 config.add_section('neuron')
 config['neuron']['model']   = 'LIF_GH'
@@ -83,7 +81,7 @@ config['driving']['seed']   = '3'
 config['driving']['gmode']  = 'true'
 #---
 config.add_section('time')
-config['time']['T']         = str(T)
+config['time']['t']         = str(T)
 config['time']['dt0']       = '0.5'
 config['time']['reps']      = str(reps) 
 #---
@@ -92,14 +90,15 @@ config['output']['poi']     = 'false'
 with open(args.prefix + '/config.ini', 'w') as configfile:
     config.write(configfile)
 #========================================
-np.random.seed(0)
+np.random.seed(8)
 
 
 # generate connecting matrix;
 start = time.time()
 mat = np.zeros((N, N))
-for i in range(N):
-    mat[i, np.random.choice(np.delete(np.arange(N), i), K, replace=False)] = 1
+if N > 1:
+    for i in range(N):
+        mat[i, np.random.choice(np.delete(np.arange(N), i), K, replace=False)] = 1
 finish = time.time()
 print('>> adjacent matrix : %3.3f s' % (finish-start))
 

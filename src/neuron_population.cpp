@@ -1,9 +1,9 @@
-//******************************
+//==============================
 //	Copyright: Kyle Chen
 //	Author: Kyle Chen
 //	Description: Define class NeuronPopulation;
-//	Date: 2019-06-09
-//******************************
+//	Created: 2019-06-09
+//==============================
 #include "neuron_population.h"
 #include <cnpy.h>
 
@@ -61,7 +61,7 @@ void NeuronPopulation::SetDelay(vector<vector<double> > &coordinates, double spe
 }
 
 void NeuronPopulation::SetRef(double t_ref) {
-	neuron_sim_->SetRef(t_ref);
+	neuron_sim_->SetRefTime(t_ref);
 }
 
 void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
@@ -136,6 +136,18 @@ void NeuronPopulation::NewSpike(int id, double t, vector<double>& spike_times) {
 	for (auto it = spike_times.begin(); it != spike_times.end(); it ++) {
 		raster_file_ << (int)id << ',' << setprecision(18) << (double)(t+*it) << '\n';
 	}
+}
+
+void NeuronPopulation::NewSpike(double t, vector<SpikeElement>& spikes) {
+  sort(spikes.begin(), spikes.end(), std::less<SpikeElement>() );
+  for (auto iter = spikes.begin(); iter != spikes.end(); iter ++ ) {
+    if (iter->t != dnan) {
+      raster_file_ << (int)iter->index << ',' << setprecision(18) << (double)(t+iter->t) << '\n';
+    } else {
+      printf("Invalid spike time with neuron ID = %d, t = %f, SPIKE_NUMBER = %ld\n", iter->index, t, SPIKE_NUMBER);
+    }
+  }
+  SPIKE_NUMBER += spikes.size();
 }
 
 // TODO: merge this step with updating function

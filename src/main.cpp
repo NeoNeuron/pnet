@@ -145,7 +145,7 @@ int main(int argc, const char* argv[]) {
 	NetworkSimulatorSSC net_sim;
 	int progress = 0;
 	while (t < tmax) {
-		net_sim.UpdateState(&net, t, dt);
+		net_sim.UpdatePopulationState(&net, t, dt);
 		t += dt;
 		// Output temporal data;
 		if (abs(recording_rate*t - floor(recording_rate*t)) == 0) {

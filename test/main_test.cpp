@@ -20,6 +20,7 @@ int main(int argc, const char* argv[]) {
 	desc.add_options()
 		("help,h", "produce help message")
 		("prefix", po::value<string>()->default_value("test/"), "prefix of output files")
+    ("verbose,v", po::bool_switch(), "show running log.")
 		;
 	po::options_description config("Configs");
 	config.add_options()
@@ -83,7 +84,8 @@ int main(int argc, const char* argv[]) {
 	string raster_path = dir + "raster.csv";
 
 	// SETUP DYNAMICS:
-	double t = 0, dt = vm["time.dt0"].as<double>();
+	double t = 0;
+  double dt = vm["time.dt0"].as<double>();
 	double tmax = vm["time.t"].as<double>();
 	int reps = vm["time.reps"].as<int>();
 	// Define the shape of data;
@@ -113,7 +115,7 @@ int main(int argc, const char* argv[]) {
 		net.InitializePoissonGenerator(vm);
 
 		while (t < tmax) {
-			net_sim.UpdateState(&net, t, dt);
+			net_sim.UpdatePopulationState(&net, t, dt);
 			t += dt;
 		}
 		net.OutPotential(file);
