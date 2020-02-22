@@ -9,15 +9,12 @@
 
 #include "io.h"
 #include "common_header.h"
-#define snan std::numeric_limits<size_t>::quiet_NaN()
-#define dnan std::numeric_limits<double>::quiet_NaN()
-using namespace std;
 
 struct Spike {
 	bool type; // type of spike: true for excitation(AMPA, NMDA), false for inhibition(GABA);
 	double t; // Exact spiking time;
 	double s; // strength of spikes;
-	Spike() : type(false), t(dnan), s(dnan) {  }
+	Spike() : type(false), t(dNaN), s(dNaN) {  }
 	Spike(bool type_val, double t_val, double s_val) 
 		: type(type_val), t(t_val), s(s_val) {  }
 
@@ -42,121 +39,66 @@ struct Spike {
   { return t != time; }
 };
 
-typedef priority_queue< Spike, std::vector<Spike>, std::greater<Spike> > PoissonSeq;
-
 // Neuronal Inputs
 class TyNeuronalInput {
 	private:
-		vector<Spike> spike_seq_;
+    std::vector<Spike> _spike_que;
 		size_t ptr;
-		const size_t soft_max_ = 8192;
+		const double _soft_size; // (ms)
+    double _current_up_bound;
 	public:
-		TyNeuronalInput() {
-			ptr = snan;
-		}
-		TyNeuronalInput(vector<Spike> &spikes) : spike_seq_(spikes), ptr(0) {
-			if (spike_seq_.empty()) ptr = snan;
-		}
-		void Reset(vector<Spike> &spikes) {
-			spike_seq_.clear();
-			spike_seq_ = spikes;
-			if (spike_seq_.empty()) {
-				ptr = snan;
-			} else {
-				ptr = 0;
-			}
-		}
+    TyNeuronalInput() : ptr(sNaN), _soft_size(100) {
+      _current_up_bound = 0.0;
+    }
+		TyNeuronalInput(const double& size) 
+      : ptr(sNaN), _soft_size(size) { 
+        _current_up_bound = 0.0;
+      }
 
-		size_t Inject(Spike &new_spike) {
-			spike_seq_.push_back(new_spike);
-			if (isnan(ptr)) {
-				ptr = 0;
-			} else {
-				std::sort( spike_seq_.begin() + ptr, spike_seq_.end(), std::greater<Spike>() );
-			}
-			return ptr;
-		}
-		size_t Inject(vector<Spike> &new_spikes) {
-			spike_seq_.insert(spike_seq_.end(), new_spikes.begin(), new_spikes.end());
-			if (isnan(ptr)) {
-				ptr = 0;
-			}
-			std::sort( spike_seq_.begin() + ptr, spike_seq_.end(), std::greater<Spike>() );
-			return ptr;
-		}
+    void Reset() {
+      _spike_que.clear();
+      ptr=sNaN;
+      _current_up_bound = 0.0;
+    }
 
 		// Get function
-		inline const size_t Where() const { return ptr; }
-		inline const size_t Size() const { return spike_seq_.size() - ptr; } // remaining size
-		inline Spike At(size_t pointer = 0) const { 
-			if (ptr + pointer >= spike_seq_.size()) {
+		Spike At(size_t pointer = 0) const { 
+			if (ptr + pointer >= _spike_que.size()) {
 				return Spike();
 			} else {
-				return spike_seq_[ptr + pointer];
+				return *(_spike_que.data() + ptr + pointer);
 			}
 		}
 
-		// Ptr manip functions
-		// move N steps
-		inline const size_t Move(size_t steps) { 
-			ptr += steps;
-			return ptr; 
-		}
-		// move until time
-		inline const size_t Move(double time) { 
-			if (ptr < spike_seq_.size()) {
-				while (spike_seq_[ptr] < time) {
-					ptr += 1;
-					if (ptr == spike_seq_.size()) {
-						break;
-					}
-				}
-			}
-			return ptr; 
-		}
-		// Clean used synaptic inputs
-		inline size_t Clear() {
-			if (ptr >= soft_max_) {
-				spike_seq_.erase(spike_seq_.begin(), spike_seq_.begin() + ptr);
-				if (spike_seq_.empty()) {
-					ptr = snan;
-				} else {
-					ptr = 0;
-				}
-			}
-			return ptr;
-		}
+    void Inject(Spike& new_spike);
+    void Move(double t);    // move ptr until time
+    double Clean(double t); // clean used synaptic inputs, return the destination 
+                            // of next episode if cleaned.
 		
 };
-typedef vector<TyNeuronalInput> TyNeuronalInputVec;
 
-class PoissonGenerator {
-	private:
+class PoissonTimeGenerator {
+  private:
 		double rate_;
-		double strength_;
-		double last_poisson_time_;
-		bool output_flag_;
+		double last_poisson_ = Inf; // last poisson time, used;
+		bool output_flag_ = false;
 		exponential_distribution<> exp_dis;
 		ofstream outfile_;
-	public:
-		PoissonGenerator() 
-			: rate_(0.0), strength_(0.0), last_poisson_time_(0.0), output_flag_(false) {  }
+  public:
+    PoissonTimeGenerator() : rate_(0.0) {  }
 
-		PoissonGenerator(double rate, double strength, bool output) 
-			: rate_(rate), strength_(strength), last_poisson_time_(0.0), output_flag_(output) {  }
+		PoissonTimeGenerator(double rate) : rate_(rate) {  }
 
-		PoissonGenerator(const PoissonGenerator&) {  }
-		//~PoissonGenerator() {
-		//	if (outfile_.is_open()) outfile_.close();
-		//}
-		
+    // TODO figure out why cannot define copy constructor
+		//PoissonTimeGenerator(const PoissonTimeGenerator&) {  }
+
+    double Rate() const {
+      return rate_;
+    }
+
 		void SetRate(double rate_val) { 
-			rate_ = rate_val; 
-			exp_dis = exponential_distribution<>(rate_);
-		}
-
-		void SetStrength(double strength_val) { 
-			strength_ = strength_val;
+      assert(rate_val >= 0);
+      rate_ = rate_val; 
 		}
 
 		void SetOuput(std::string filename) {
@@ -164,20 +106,49 @@ class PoissonGenerator {
 			outfile_.open(filename);
 		}
 
-		void Reset() {
-			rate_								= 0.0;
-			exp_dis = exponential_distribution<>();
-			strength_						= 0.0;
-			last_poisson_time_	= 0.0;
-			output_flag_ = false;
-		}
+    double Init() {
+      if (rate_ == 0) {
+        last_poisson_ = Inf;
+        return Inf;
+      } else if (rate_ > 0) {
+        last_poisson_	= 0;
+        exp_dis = exponential_distribution<>(rate_);
+        return NextPoisson();
+      } else {
+        throw runtime_error("Error: negative Poisson rate.");
+      }
+    }
 
-		// Generate new Poisson series and export to synpatic_driven; autosort after generatation if synaptic delay is nonzero;
-		// type: true for excitatory spike, false for inhibitory spike;
-    // tmax: maximum time of Poisson sequence;
-    // poisson_driven: container for new poisson spikes;
-		// return: none;
-		void GenerateNewPoisson( bool type, double tmax, PoissonSeq & poisson_driven );
+    double NextPoisson();
+  
+};
+
+class TyPoissonInput: public TyNeuronalInput {
+	private:
+    PoissonTimeGenerator gen_exc, gen_inh;
+    double pse, psi;
+    double pe_toggle, pi_toggle;
+
+	public:
+    TyPoissonInput() : gen_exc(), gen_inh(), pse(0.0), psi(0.0) {  }
+		TyPoissonInput(double* rate, double* strength) 
+      : gen_exc(rate[0]), gen_inh(rate[1]),
+        pse(strength[0]), psi(strength[1]) {  }
+		TyPoissonInput(double* rate, double* strength, const double& max_capacity) 
+      : TyNeuronalInput(max_capacity),
+        gen_exc(rate[0]), gen_inh(rate[1]),
+        pse(strength[0]), psi(strength[1]) {  }
+
+		//TyPoissonInput(const TyPoissonInput&) {  }
+
+    // Initialize Poisson generators
+		void InitInput(); 
+
+    // Generate new Poisson series until tmax; 
+		void GenerateNewPoisson(double tmax);
+
+    // Generate new poisson and fill the neuronal input sequence;
+		void CleanAndRefillPoisson(double tmax);
 
 };
 

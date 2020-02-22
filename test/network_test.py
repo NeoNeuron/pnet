@@ -6,6 +6,7 @@ import struct as st
 import argparse
 import configparser as cp
 import time
+import os
 import sys
 sys.path.append('./utils/')
 import spatialnet as sn
@@ -17,7 +18,7 @@ args = parser.parse_args()
 
 #network setting
 model = 'LIF_GH'
-Ne = 80   # No. of exc neuron
+Ne = 80    # No. of exc neuron
 Ni = 20    # No. of inh neuron
 K  = 10    # connection degree
 
@@ -26,8 +27,8 @@ N = Ne + Ni
 # interaction setting 
 Jee = 2.0e-2
 Jie = 2.0e-2
-Jei = 2.0e-2
-Jii = 2.0e-2
+Jei = 1.0e-1
+Jii = 1.0e-1
 
 see = Jee / np.sqrt(K)
 sie = Jie / np.sqrt(K)
@@ -35,8 +36,8 @@ sei = Jei / np.sqrt(K)
 sii = Jii / np.sqrt(K)
 
 # poisson setting
-pr_e = 23     # unit Hz
-pr_i = 23     # unit Hz
+pr_e = 30     # unit Hz
+pr_i = 30     # unit Hz
 ps_e = 1.0e-1     # 
 ps_i = 1.0e-1     # 
 
@@ -78,8 +79,7 @@ config['space']['file']     = 'dmat.npy'
 #---
 config.add_section('driving')
 config['driving']['file']   = 'PoissonSetting.csv'
-config['driving']['seed']   = '2'
-config['driving']['gmode']  = 'true'
+config['driving']['seed']   = '1'
 #---
 config.add_section('time')
 config['time']['t']         = str(T)
@@ -88,6 +88,9 @@ config['time']['reps']      = str(reps)
 #---
 config.add_section('output')
 config['output']['poi']     = 'false'
+if (~os.path.isdir(args.prefix)):
+    subprocess.call(['mkdir', '-p', args.prefix])
+    
 with open(args.prefix + '/config.ini', 'w') as configfile:
     config.write(configfile)
 #========================================
@@ -107,9 +110,9 @@ print('>> adjacent matrix : %3.3f s' % (finish-start))
 # ----------------------------
 start = time.time()
 smat = np.zeros((N, N))
-smat[0:Ne,0:Ne] = mat[0:Ne,0:Ne] * see
-smat[Ne:,0:Ne] = mat[Ne:,0:Ne] * sie
-smat[0:Ne,Ne:] = mat[0:Ne,Ne:] * sei
+smat[:Ne,:Ne] = mat[:Ne,:Ne] * see
+smat[Ne:,:Ne] = mat[Ne:,:Ne] * sie
+smat[:Ne,Ne:] = mat[:Ne,Ne:] * sei
 smat[Ne:,Ne:] = mat[Ne:,Ne:] * sii
 finish = time.time()
 print('>> strength matrix : %3.3f s' % (finish-start))
@@ -118,14 +121,14 @@ print('>> strength matrix : %3.3f s' % (finish-start))
 # ----------------------
 start = time.time()
 pmat = np.zeros((N, 4))
-pmat[0:Ne, 0] = pr_e
-pmat[0:Ne, 1] = ps_e
-pmat[0:Ne, 2] = 0.0
-pmat[0:Ne, 3] = 0.0
-pmat[Ne:-1, 0] = pr_i
-pmat[Ne:-1, 1] = ps_i
-pmat[Ne:-1, 2] = 0.0
-pmat[Ne:-1, 3] = 0.0
+pmat[:Ne,0] = pr_e
+pmat[:Ne,1] = 0.0
+pmat[:Ne,2] = ps_e
+pmat[:Ne,3] = 0.0
+pmat[Ne:,0] = pr_i
+pmat[Ne:,1] = 0.0
+pmat[Ne:,2] = ps_i
+pmat[Ne:,3] = 0.0
 finish = time.time()
 print('>> poisson setting : %3.3f s' % (finish-start))
 
@@ -136,7 +139,7 @@ x,y = np.meshgrid(range(grid_size),range(grid_size))
 x = (x+0.5)/grid_size
 y = (y+0.5)/grid_size
 gd = np.vstack( (x.flatten(), y.flatten()) ).T
-dmat = sn.gen_delay_matrix(gd, 0.0)
+dmat = sn.gen_delay_matrix(gd, 1.0)
 finish = time.time()
 print('>> coordinate matrix : %3.3f s' % (finish-start))
 
@@ -199,5 +202,5 @@ plt.grid()
 ax2.set_xlabel('Timing step (ms)', fontsize = 12)
 ax2.set_ylabel('Relative deviation', fontsize = 12)
 plt.tight_layout()
-plt.savefig('network_test.png')
+plt.savefig(args.prefix + 'network_test.png')
 subprocess.call(['rm', '-f', args.prefix + '/data_network_test.bin', args.prefix + '/data_network_raster.csv'])

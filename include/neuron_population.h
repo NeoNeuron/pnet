@@ -17,7 +17,7 @@ struct SpikeElement {
   int index;  // The sequence order of spikes within single time interval;
   double t;   // exact spiking time;
   bool type;  // The type of neuron that fired;
-  SpikeElement() : index(-1), t(dnan), type(false) {  }
+  SpikeElement() : index(-1), t(dNaN), type(false) {  }
   SpikeElement(int index_val, double t_val, bool type_val)
    : index(index_val), t(t_val), type(type_val) {  }
 
@@ -30,7 +30,8 @@ struct SpikeElement {
 };
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> TyDymVals; 
-typedef Eigen::SparseMatrix<double, Eigen::ColMajor> TyConMat; 
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor> TySparseAdjMat; 
+typedef std::vector<TyPoissonInput> TyPoissonInputVec;
 
 inline double* GetPtr(TyDymVals &mat, int id) {
 	return mat.data() + id * mat.cols();
@@ -48,27 +49,18 @@ class NeuronPopulation {
 		int Ne_;		// number of excitatory neurons;
 		TyDymVals dym_vals_;		// dynamic variables of neurons;
 
-		// PoissonGenerators:
-    std::vector<PoissonGenerator> pge_;
-    std::vector<PoissonGenerator> pgi_;
-		bool pg_mode;
+		// Poisson-based network inputs:
+    TyPoissonInputVec inputs_vec_;
 
 		// Network Structure:
 		bool is_con_;
-		TyConMat s_mat_;									// matrix of inter-neuronal interacting strength;
+		TySparseAdjMat s_mat_;									// matrix of inter-neuronal interacting strength;
     typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> TyDelayMatrix;
     TyDelayMatrix delay_mat_;
-
-		// Network Inputs:
-		//vector<queue<Spike> > ext_inputs_; // temp storage of external Poisson input;
-    std::vector<PoissonSeq> ext_inputs_;     // temp storage of external Poisson input;
-		TyNeuronalInputVec synaptic_drivens_;
 
 		// Data output interface:
 		ofstream raster_file_;
 
-	//public:
-		// Neuronal network initialization:
 		NeuronPopulation(std::string neuron_type, int Ne, int Ni) {
 			// Network Parameters:
 			if (neuron_type == "LIF_G") {
@@ -88,14 +80,10 @@ class NeuronPopulation {
 			for (int i = 0; i < neuron_number_; i++) {
 				neuron_sim_->GetDefaultDymVal(GetPtr(dym_vals_, i));
 			}
-      pge_.resize(neuron_number_);
-      pgi_.resize(neuron_number_);
 			// Network structure:
 			is_con_ = false;
 			s_mat_.resize(neuron_number_, neuron_number_);
 			delay_mat_ = TyDelayMatrix::Zero(neuron_number_, neuron_number_);
-			ext_inputs_.resize(neuron_number_);
-			synaptic_drivens_.resize(neuron_number_);
 		}
 		~NeuronPopulation() { delete neuron_sim_; }
 		
@@ -113,36 +101,49 @@ class NeuronPopulation {
 		void SetDrivingType(bool driving_type);
 
 		//	Initialize internal homogeneous feedforward Poisson rate;
-		void InitializePoissonGenerator(po::variables_map &vm);
+		void InitializePoissonGenerator(po::variables_map &vm, double buffer_size);
 
 		// Initialize interface for raster data;
 		void InitRasterOutput(std::string ras_path);
 		void CloseRasterOutput() {
 			raster_file_.close();	
 		}
-
-		// 	Input new spikes for neurons all together;
-		//void InNewSpikes(std::vector<std::vector<Spike> > &data);
-
 		// DYNAMICS:
-		// Inject Poisson sequence from ext_inputs_ to synaptic_drivens_, autosort after generatation if synaptic delay is nonzero;
-		// tmax: maximum time of Poisson sequence;
-		// return: none;
-		void InjectPoisson(double tmax);
+    // Update single neuron state locally, return GLOBAL spike time in SpikeElement.
+    inline void UpdateNeuronStateLocal(int index, double t, double dt, std::vector<SpikeElement>& new_spikes) {
+      double t_spike = neuron_sim_->UpdateDymState(GetPtr(dym_vals_,index), dt);
+      if (t_spike >= 0) {
+        if (index < Ne_) {
+          new_spikes.emplace_back(index, t+t_spike, true);
+        } else {
+          new_spikes.emplace_back(index, t+t_spike, false);
+        }
+      }
+    }
+
+    // Delta interaction:
+    inline void DeltaInteraction(Spike spike, int index) {
+      if (spike.type) 
+        *(GetPtr(dym_vals_, index) + neuron_sim_->GetIDGEInject()) += spike.s;
+      else 
+        *(GetPtr(dym_vals_, index) + neuron_sim_->GetIDGIInject()) += spike.s;
+    }
 
 		//	Inject synaptic inputs, either feedforward or interneuronal ones, autosort after insertion;
 		inline void InjectSpike(Spike x, int id) {
-			synaptic_drivens_[id].Inject(x);
+			inputs_vec_[id].Inject(x);
 		}
 
-		//	NewSpike: record new spikes for id-th neurons which fire at t = t + dt;
-		void NewSpike(int id, double t, double spike_time);
-		void NewSpike(int id, double t, std::vector<double>& spike_times);
-		void NewSpike(double t, std::vector<SpikeElement>& spikes);
+		//  export new spikes of id's neurons at t = spike_time to file;
+		void NewSpike(int id, double spike_time);
+		void NewSpike(std::vector<SpikeElement>& spikes);
 
 		// Clean used synaptic inputs:
-		void CleanUsedInputs(double tmax);
-
+    void CleanUsedInputs(double tmax) {
+      for (int i = 0; i < neuron_number_; i ++) {
+        inputs_vec_[i].CleanAndRefillPoisson(tmax);
+      }
+    }
 
 		//	Restore neuronal state for all neurons, including neuronal potential, conductances, refractory periods and external network drive;
 		void RestoreNeurons();

@@ -20,9 +20,21 @@
 #include <Eigen/Sparse>
 #include <boost/program_options.hpp>
 
+#ifndef DEBUG
+  #define dbg_printf(...) ((void) 0);
+#else 
+  // Ref: https://en.wikipedia.org/wiki/Variadic_macro
+  #define dbg_printf(format, ...) \
+    printf ("DBG: %s(%u): " format "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#endif
+
+#define sNaN std::numeric_limits<size_t>::quiet_NaN()
+#define dNaN std::numeric_limits<double>::quiet_NaN()
+#define Inf  std::numeric_limits<double>::infinity();
+
 extern std::mt19937 rand_gen;
-extern std::uniform_real_distribution<> rand_distribution;
 extern size_t NEURON_INTERACTION_TIME;
 extern size_t SPIKE_NUMBER;
+extern size_t POISSON_CALL_TIME;
 
 #endif //_COMMON_HEADER_H_

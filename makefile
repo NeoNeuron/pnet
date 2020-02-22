@@ -37,9 +37,12 @@ $(BIN) : $(DIRS) $(OBJS)
 $(BIN_TEST) : $(DIRS) $(OBJS_TEST)
 	$(CXX) $(CPPFLAGS) -o $(BIN_TEST) $(OBJS_TEST) $(LDLIBS)
 
-.PHONY : all test
-all : $(BIN) $(BIN_TEST)
+.PHONY : test
 test : $(BIN_TEST)
+
+.PHONY : debug
+debug : CPPFLAGS += -DDEBUG
+debug : $(BIN)
 
 $(DIRS) : 
 	@mkdir -p $@

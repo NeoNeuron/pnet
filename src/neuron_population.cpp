@@ -9,10 +9,6 @@
 
 using namespace std;
 
-inline double L2(vector<double> &x, vector<double> &y) {	
-	return sqrt((x[0] - y[0])*(x[0] - y[0]) + (x[1] - y[1])*(x[1] - y[1]));
-}
-
 void NeuronPopulation::InitializeSynapticStrength(po::variables_map &vm) {
 	typedef Eigen::Triplet<double> T;
 	vector<T> T_list;
@@ -45,35 +41,27 @@ void NeuronPopulation::SetRef(double t_ref) {
 	neuron_sim_->SetRefTime(t_ref);
 }
 
-void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm) {
+void NeuronPopulation::InitializePoissonGenerator(po::variables_map &vm, double buffer_size) {
 	vector<vector<double> > poisson_settings;
 	//	poisson_setting: 
-	//		[:,0] excitatory Poisson rate;
-	//		[:,1] excitatory Poisson strength;
+	//		[:,0] Exc. Poisson rate;
+	//		[:,1] Inh. Poisson rate;
+	//		[:,2] Exc. Poisson strength;
+	//		[:,3] Inh. Poisson strength;
 	// import the data file of feedforward driving rate:
 	Read2D(vm["prefix"].as<string>() + vm["driving.file"].as<string>(), poisson_settings);
 	if (poisson_settings.size() != neuron_number_) {
-		cout << "Error inputing length! (Not equal to the number of neurons in the net)";
-		return;
+		throw runtime_error("Error inputing length! (Not equal to the number of neurons in the net)");
 	}
-	bool poisson_output = vm["output.poi"].as<bool>();
 	for (int i = 0; i < neuron_number_; i++) {
-    pge_[i].SetRate(poisson_settings[i][0]);
-    pge_[i].SetStrength(poisson_settings[i][1]);
-    pgi_[i].SetRate(poisson_settings[i][2]);
-    pgi_[i].SetStrength(poisson_settings[i][3]);
-		if (poisson_output) {
-      pge_[i].SetOuput( vm["prefix"].as<string>() + "pge" + to_string(i) + ".csv" );
-      pgi_[i].SetOuput( vm["prefix"].as<string>() + "pgi" + to_string(i) + ".csv" );
-		}
+    inputs_vec_.emplace_back(poisson_settings[i].data(), poisson_settings[i].data()+2, buffer_size);
 	}
-	pg_mode = vm["driving.gmode"].as<bool>();
-
-	if ( pg_mode ) {
-    for (int i = 0; i < neuron_number_; i ++) {
-      pge_[i].GenerateNewPoisson( true,  vm["time.t"].as<double>(), ext_inputs_[i] );
-      pgi_[i].GenerateNewPoisson( false, vm["time.t"].as<double>(), ext_inputs_[i] );
-    }
+  // generate the first episode of Poisson sequence,
+  // default episode length used here.
+	for (int i = 0; i < neuron_number_; i++) {
+    inputs_vec_[i].InitInput();
+    inputs_vec_[i].CleanAndRefillPoisson(0.0); // fill the first portion of spikes;
+    dbg_printf("number of Poisson spikes in %d's neuron: %ld", i, POISSON_CALL_TIME);
 	}
 }
 
@@ -81,75 +69,32 @@ void NeuronPopulation::InitRasterOutput(string ras_path) {
 	raster_file_.open(ras_path.c_str());	
 }
 
-// Used simple interaciton case network system;
-//// TODO: the number of sorting can be reduced;
-//void NeuronPopulation::InNewSpikes(vector<vector<Spike> > & data) {
-//	for (int i = 0; i < neuron_number_; i++) {
-//		if (!data[i].empty()) {
-//			for (auto it = data[i].begin(); it != data[i].end(); it++) {
-//				neuron_sim_->InSpike(synaptic_drivens_[i], spike_trains_[i], *it);
-//			}
-//		}
-//	}
-//}
-
-void NeuronPopulation::InjectPoisson(double tmax) {
-  for (int i = 0; i < neuron_number_; i ++) {
-    if ( !ext_inputs_[i].empty() ) {
-      while ( ext_inputs_[i].top().t < tmax ) {
-        InjectSpike(ext_inputs_[i].top(), i);
-        ext_inputs_[i].pop();
-        if ( ext_inputs_[i].empty() ) break;
-      }
-    }
-  }
-}
-
-void NeuronPopulation::NewSpike(int id, double t, double spike_time) {
-  raster_file_ << (int)id << ',' << setprecision(18) << (double)(t+spike_time) << '\n';
+void NeuronPopulation::NewSpike(int id, double spike_time) {
+  raster_file_ << (int)id << ',' << setprecision(18) << (double)spike_time << '\n';
   SPIKE_NUMBER ++;
-  if (t+spike_time==dnan) {
-    printf("Invalid spike time with neuron ID = %d, t = %f, SPIKE_NUMBER = %ld\n", id, t, SPIKE_NUMBER);
+  if (spike_time==dNaN) {
+    printf("Invalid spike time with neuron ID = %d, SPIKE_NUMBER = %ld\n", id, SPIKE_NUMBER);
   }
 }
 
-void NeuronPopulation::NewSpike(int id, double t, vector<double>& spike_times) {
-	for (auto it = spike_times.begin(); it != spike_times.end(); it ++) {
-		raster_file_ << (int)id << ',' << setprecision(18) << (double)(t+*it) << '\n';
-	}
-}
-
-void NeuronPopulation::NewSpike(double t, vector<SpikeElement>& spikes) {
+void NeuronPopulation::NewSpike(vector<SpikeElement>& spikes) {
   sort(spikes.begin(), spikes.end(), std::less<SpikeElement>() );
   for (auto iter = spikes.begin(); iter != spikes.end(); iter ++ ) {
-    if (iter->t != dnan) {
-      raster_file_ << (int)iter->index << ',' << setprecision(18) << (double)(t+iter->t) << '\n';
+    if (iter->t != dNaN) {
+      raster_file_ << (int)iter->index << ',' << setprecision(18) << (double)(iter->t) << '\n';
     } else {
-      printf("Invalid spike time with neuron ID = %d, t = %f, SPIKE_NUMBER = %ld\n", iter->index, t, SPIKE_NUMBER);
+      printf("Invalid spike time with neuron ID = %d, SPIKE_NUMBER = %ld\n", iter->index, SPIKE_NUMBER);
     }
   }
   SPIKE_NUMBER += spikes.size();
 }
 
-// TODO: merge this step with updating function
-void NeuronPopulation::CleanUsedInputs(double tmax) {
-	for (int i = 0; i < neuron_number_; i ++) {
-		synaptic_drivens_[i].Move(tmax);
-		// clean old synaptic driven;
-		synaptic_drivens_[i].Clear();
-	}
-}
-
 void NeuronPopulation::RestoreNeurons() {
 	for (int i = 0; i < neuron_number_; i++) {
 		neuron_sim_->GetDefaultDymVal(GetPtr(dym_vals_, i));
-    pge_[i].Reset();
-    pgi_[i].Reset();
+    inputs_vec_[i].InitInput();
+    inputs_vec_[i].CleanAndRefillPoisson(0.0); // fill the first portion of spikes;
 	}
-	ext_inputs_.clear();
-	ext_inputs_.resize(neuron_number_);
-	synaptic_drivens_.clear();
-	synaptic_drivens_.resize(neuron_number_);
 }
 
 void NeuronPopulation::OutPotential(FILEWRITE& file) {

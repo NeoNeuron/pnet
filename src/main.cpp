@@ -1,25 +1,21 @@
-//*************************
+// =========================
 //	Copyright: Kyle Chen
 //	Author: Kyle Chen
-//	Date: 2019-05-02 
+//	Created: 2018-09-02 
 //	Description: program for point-neuronal-network simulation;
-//*************************
+// =========================
 
 #include <chrono>
 #include "network_simulator.h"
 using namespace std;
 
 mt19937 rand_gen(1);
-uniform_real_distribution<> rand_distribution(0.0, 1.0);
 size_t NEURON_INTERACTION_TIME = 0;
 size_t SPIKE_NUMBER = 0;
+size_t POISSON_CALL_TIME = 0;
 
 //	Simulation program for single network system;
-//	
-//	arguments:
-//	argv[1] = path of config file;
-//	argv[2] = Output directory for neural data;
-//
+
 int main(int argc, const char* argv[]) {
 	auto start = chrono::system_clock::now();
 	// Config program options:
@@ -46,7 +42,6 @@ int main(int argc, const char* argv[]) {
 		// [driving]
 		("driving.file", po::value<string>()->default_value(""), "file of Poisson settings")
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
-		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
 		// [time]
 		("time.t", po::value<double>(), "total simulation time")
 		("time.dt", po::value<double>(), "simulation time step")
@@ -98,7 +93,7 @@ int main(int argc, const char* argv[]) {
 
 	// Set driving_mode;
 	rand_gen.seed(vm["driving.seed"].as<int>());
-	net.InitializePoissonGenerator(vm);
+	net.InitializePoissonGenerator(vm, 100);
 
 	// Init raster output
 	string raster_path = dir + "raster.csv";
@@ -139,6 +134,7 @@ int main(int argc, const char* argv[]) {
   }
 
 	start = chrono::system_clock::now();
+  dbg_printf(">>> number of Poisson spikes : %ld", POISSON_CALL_TIME);
 	NetworkSimulatorSSC net_sim;
 	int progress = 0;
 	while (t < tmax) {
@@ -169,9 +165,9 @@ int main(int argc, const char* argv[]) {
 	if (!gi_flag) gi_file.Remove();
 	
   if (verbose) {
+    printf(">>> number of Poisson spikes : %ld", POISSON_CALL_TIME);
     printf(">> Done!             \n");
   }
-	//net.PrintCycle();
 	
 	elapsed_seconds = finish-start;
   if (verbose) {

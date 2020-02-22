@@ -11,6 +11,7 @@ mt19937 rand_gen(1);
 uniform_real_distribution<> rand_distribution(0.0, 1.0);
 size_t NEURON_INTERACTION_TIME = 0;
 size_t SPIKE_NUMBER = 0;
+size_t POISSON_CALL_TIME = 0;
 
 int main(int argc, const char* argv[]) {
 	clock_t start, finish;
@@ -38,7 +39,6 @@ int main(int argc, const char* argv[]) {
 		// [driving]
 		("driving.file", po::value<string>(), "file of Poisson settings")
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
-		("driving.gmode", po::value<bool>()->default_value(true), "true: generate full Poisson sequence as initialization\nfalse: generate Poisson during simulation by parts")
 		// [time]
 		("time.t", po::value<double>(), "total simulation time")
 		("time.dt0", po::value<double>(), "initial time step")
@@ -104,23 +104,26 @@ int main(int argc, const char* argv[]) {
 	start = clock();
 	vector<vector<double> > spike_trains;
 	vector<double> add_spike_train;
+	rand_gen.seed(vm["driving.seed"].as<int>());
+	net.InitializePoissonGenerator(vm, 100);
 	// Start loop;
 	for (int i = 0; i < reps; i++) {
 		net.InitRasterOutput(dir + "ras_" + to_string(i) + ".csv");
 		// Set driving_mode;
-		rand_gen.seed(vm["driving.seed"].as<int>());
-		net.InitializePoissonGenerator(vm);
 
 		while (t < tmax) {
 			net_sim.UpdatePopulationState(&net, t, dt);
 			t += dt;
 		}
 		net.OutPotential(file);
-		printf("Total inter-neuronal interaction : %d\n", (int)NEURON_INTERACTION_TIME);
-		net.RestoreNeurons();
+		printf("Total inter-neuronal interaction : %ld\n", NEURON_INTERACTION_TIME);
+		printf("Total Poisson Number : %ld\n", POISSON_CALL_TIME);
 		t = 0;
 		dt /= 2;
 		NEURON_INTERACTION_TIME = 0;
+		POISSON_CALL_TIME = 0;
+    rand_gen.seed(vm["driving.seed"].as<int>());
+		net.RestoreNeurons();
 		net.CloseRasterOutput();
 	}	
 	finish = clock();

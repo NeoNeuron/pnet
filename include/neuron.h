@@ -384,7 +384,7 @@ class LIF_Shell: public LIF_Core, public NeuronBase {
 		//	  including conductance, membrane potential and spike time; 
 		//	dym_val: pointer of dynamic variables;
 		//  dt: size of time step (ms);
-		//	return: -1 for no spiking events; otherwise, return relative spiking time respect to the begining of the time step;
+		//	return: -1 for no spiking events; otherwise, return LOCAL spike time respect to the begining of the time step;
 		//	note: if the input current (strength of synaptic input) is too large, 
     //	      or the neuron are at bursting state, the function might fail;
 		double UpdateDymState(double *dym_val, double dt) const override {

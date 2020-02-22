@@ -77,6 +77,10 @@ class network:
         self.smat = np.zeros((self.n, self.n), dtype=np.float64)
         self.dmat = np.zeros((self.n, 2), dtype=np.float64)
         self.pmat = np.zeros((self.n, 4), dtype=np.float64) # Poisson rate in unit kHz
+        # pmat[:,0] : Exc. Poisson rate
+        # pmat[:,1] : Inh. Poisson rate
+        # pmat[:,2] : Exc. Poisson strength
+        # pmat[:,3] : Inh. Poisson strength
 
         # dictionary of config
         self.config = cp.ConfigParser()
@@ -97,7 +101,6 @@ class network:
         self.config['driving'] = {
                 'file'  : 'PoissonSetting.csv',
                 'seed'  : '3',
-                'gmode' : 'true',
                 }
         self.config['time'] = {
                 't'   : '1e3',
@@ -147,7 +150,7 @@ class network:
         print(('{:>10.2e}'*4).format(self.see, self.sie, self.sei, self.sii))
         line(40)
         print("FFWD Poisson:")
-        print(('{:>10s}'*4).format('pre','pse','pri','psi'))
+        print(('{:>10s}'*4).format('pre','pri','pse','psi'))
         print(('{:>10.2e}'*4).format(*self.pmat.mean(0)))
         line(40)
         print("Afferent Connection:")
@@ -291,25 +294,24 @@ class network:
             self.config['space']['file']    = space_file
         if pre_e is not None:
             self.pmat[:self.ne, 0] = float(pre_e)
-        if pse_e is not None:       
-            self.pmat[:self.ne, 1] = float(pse_e)
         if pri_e is not None:       
-            self.pmat[:self.ne, 2] = float(psi_e)
+            self.pmat[:self.ne, 1] = float(psi_e)
+        if pse_e is not None:       
+            self.pmat[:self.ne, 2] = float(pse_e)
         if psi_e is not None:       
             self.pmat[:self.ne, 3] = float(psi_e)
         if pre_i is not None:
             self.pmat[self.ne:, 0] = float(pre_i)
-        if pse_i is not None:       
-            self.pmat[self.ne:, 1] = float(pse_i)
         if pri_i is not None:       
-            self.pmat[self.ne:, 2] = float(pri_i)
+            self.pmat[self.ne:, 1] = float(pri_i)
+        if pse_i is not None:       
+            self.pmat[self.ne:, 2] = float(pse_i)
         if psi_i is not None:       
             self.pmat[self.ne:, 3] = float(psi_i)
         if poisson_file is not None:
             self.config['driving']['file']  = poisson_file
         if poisson_seed is not None:
             self.config['driving']['seed']  = str(poisson_seed)
-        #    self.config['driving']['gmode']  = 'true'
         if T is not None:
             self.config['time']['t']        = str(T)
         if dt is not None:
