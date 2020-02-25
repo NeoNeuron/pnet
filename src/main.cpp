@@ -93,11 +93,12 @@ int main(int argc, const char* argv[]) {
 
 	// Set driving_mode;
 	rand_gen.seed(vm["driving.seed"].as<int>());
-	net.InitializePoissonGenerator(vm, 100);
+	net.InitializePoissonGenerator(vm, 10);
 
 	// Init raster output
 	string raster_path = dir + "raster.csv";
 	net.InitRasterOutput(raster_path);
+
 	
 	// SETUP DYNAMICS:
 	double t = 0, dt = vm["time.dt"].as<double>();
@@ -165,8 +166,8 @@ int main(int argc, const char* argv[]) {
 	if (!gi_flag) gi_file.Remove();
 	
   if (verbose) {
-    printf(">>> number of Poisson spikes : %ld", POISSON_CALL_TIME);
-    printf(">> Done!             \n");
+    printf(">>> number of Poisson spikes : %ld\n", POISSON_CALL_TIME);
+    printf(">> Done!\n");
   }
 	
 	elapsed_seconds = finish-start;

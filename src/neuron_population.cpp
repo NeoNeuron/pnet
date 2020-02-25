@@ -77,8 +77,8 @@ void NeuronPopulation::NewSpike(int id, double spike_time) {
   }
 }
 
-void NeuronPopulation::NewSpike(vector<SpikeElement>& spikes) {
-  sort(spikes.begin(), spikes.end(), std::less<SpikeElement>() );
+void NeuronPopulation::NewSpike(vector<SpikeTimeId>& spikes) {
+  sort(spikes.begin(), spikes.end(), std::less<SpikeTimeId>() );
   for (auto iter = spikes.begin(); iter != spikes.end(); iter ++ ) {
     if (iter->t != dNaN) {
       raster_file_ << (int)iter->index << ',' << setprecision(18) << (double)(iter->t) << '\n';

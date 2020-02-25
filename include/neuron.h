@@ -44,7 +44,7 @@ class NeuronBase {
 		virtual void SetRefTime(double t_ref) = 0;
 		virtual void SetConstCurrent(double i_val) = 0;
     // "dynamics" funcions
-		virtual void ManuallyFire(double* dym_val) const = 0;
+		virtual void ForceFire(double* dym_val) const = 0;
 		virtual double UpdateDymState(double *dym_val, double dt) const = 0;
 		virtual ~NeuronBase() {  }
 };
@@ -375,7 +375,7 @@ class LIF_Shell: public LIF_Core, public NeuronBase {
 		double GetCurrent(double *dym_val) const override { return GetDv(dym_val); }
 		void SetRefTime(double t_ref) override { tau_ = t_ref; }
 		void SetConstCurrent(double i_val) override { const_I = i_val; }
-		void ManuallyFire(double *dym_val) const override {
+		void ForceFire(double *dym_val) const override {
 			dym_val[id_v_] = resting_potential_;
 			dym_val[id_tr_] = tau_;
 		}

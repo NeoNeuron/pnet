@@ -105,11 +105,10 @@ int main(int argc, const char* argv[]) {
 	vector<vector<double> > spike_trains;
 	vector<double> add_spike_train;
 	rand_gen.seed(vm["driving.seed"].as<int>());
-	net.InitializePoissonGenerator(vm, 100);
+	net.InitializePoissonGenerator(vm, 10);
 	// Start loop;
 	for (int i = 0; i < reps; i++) {
 		net.InitRasterOutput(dir + "ras_" + to_string(i) + ".csv");
-		// Set driving_mode;
 
 		while (t < tmax) {
 			net_sim.UpdatePopulationState(&net, t, dt);

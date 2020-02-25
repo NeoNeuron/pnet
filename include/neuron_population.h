@@ -13,20 +13,19 @@
 #include "common_header.h"
 namespace po = boost::program_options;
 
-struct SpikeElement {
+struct SpikeTimeId {
   int index;  // The sequence order of spikes within single time interval;
   double t;   // exact spiking time;
-  bool type;  // The type of neuron that fired;
-  SpikeElement() : index(-1), t(dNaN), type(false) {  }
-  SpikeElement(int index_val, double t_val, bool type_val)
-   : index(index_val), t(t_val), type(type_val) {  }
+  SpikeTimeId() : index(-1), t(dNaN) {  }
+  SpikeTimeId(double time, int index_val)
+   : index(index_val), t(time) {  }
 
-  bool operator < (const SpikeElement &b) const
+  bool operator < (const SpikeTimeId &b) const
   { return t < b.t; }
-  bool operator > (const SpikeElement &b) const
+  bool operator > (const SpikeTimeId &b) const
   { return t > b.t; }
-  bool operator == (const SpikeElement &b) const
-  { return t == b.t && type == b.type; }
+  bool operator == (const SpikeTimeId &b) const
+  { return t == b.t && index == b.index; }
 };
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> TyDymVals; 
@@ -109,16 +108,14 @@ class NeuronPopulation {
 			raster_file_.close();	
 		}
 		// DYNAMICS:
-    // Update single neuron state locally, return GLOBAL spike time in SpikeElement.
-    inline void UpdateNeuronStateLocal(int index, double t, double dt, std::vector<SpikeElement>& new_spikes) {
-      double t_spike = neuron_sim_->UpdateDymState(GetPtr(dym_vals_,index), dt);
-      if (t_spike >= 0) {
-        if (index < Ne_) {
-          new_spikes.emplace_back(index, t+t_spike, true);
-        } else {
-          new_spikes.emplace_back(index, t+t_spike, false);
-        }
+    // Update single neuron state locally, return GLOBAL spike time in SpikeTimeId.
+    inline void UpdateNeuronStateLocal(int index, double t, double dt, std::vector<SpikeTimeId>& new_spikes) {
+      if (dt < 0) {
+        printf(">> Warning negative dt : id = (%d), t = (%f) dt = (%.2f).  t_spike = ", index, t, dt);
       }
+      double t_spike = neuron_sim_->UpdateDymState(GetPtr(dym_vals_,index), dt);
+      if (t_spike >= 0)
+        new_spikes.emplace_back(t+t_spike, index);
     }
 
     // Delta interaction:
@@ -136,13 +133,16 @@ class NeuronPopulation {
 
 		//  export new spikes of id's neurons at t = spike_time to file;
 		void NewSpike(int id, double spike_time);
-		void NewSpike(std::vector<SpikeElement>& spikes);
+		void NewSpike(std::vector<SpikeTimeId>& spikes);
 
 		// Clean used synaptic inputs:
     void CleanUsedInputs(double tmax) {
       for (int i = 0; i < neuron_number_; i ++) {
         inputs_vec_[i].CleanAndRefillPoisson(tmax);
       }
+    }
+    void CleanUsedInputs(int index, double tmax) {
+      inputs_vec_[index].CleanAndRefillPoisson(tmax);
     }
 
 		//	Restore neuronal state for all neurons, including neuronal potential, conductances, refractory periods and external network drive;

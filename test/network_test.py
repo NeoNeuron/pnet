@@ -50,6 +50,7 @@ ps_i /= np.sqrt(K)
 # timing
 reps = 10
 T = 1e3
+t0 = 0.25
 # spatial location of neurons
 # currently using square grid
 
@@ -83,13 +84,15 @@ config['driving']['seed']   = '1'
 #---
 config.add_section('time')
 config['time']['t']         = str(T)
-config['time']['dt0']       = '0.5'
+config['time']['dt0']       = str(t0)
 config['time']['reps']      = str(reps) 
 #---
 config.add_section('output')
 config['output']['poi']     = 'false'
-if (~os.path.isdir(args.prefix)):
-    subprocess.call(['mkdir', '-p', args.prefix])
+if (not os.path.isdir(args.prefix)):
+    call_state = subprocess.call(['mkdir', '-p', args.prefix])
+    if call_state!=0:
+        raise RuntimeError('Fail to create directory '+args.prefix)
     
 with open(args.prefix + '/config.ini', 'w') as configfile:
     config.write(configfile)
@@ -152,7 +155,9 @@ np.save(args.prefix + config['space']['file'], dmat)
 
 subprocess.call(['rm', '-f', args.prefix + '/ras_*.csv'])
 
-subprocess.call(['bin/net_sim_test', '--prefix', args.prefix])
+call_state = subprocess.call(['bin/net_sim_test', '--prefix', args.prefix])
+if call_state != 0:
+    raise RuntimeError('Fail to execute test program.')
 
 # import test data and pre-process
 

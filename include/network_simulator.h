@@ -2,7 +2,7 @@
 // Copyright: Kyle Chen
 // Author: Kyle Chen
 // Created: 2019-06-09
-// Description: define Struct SpikeElement and Class Network;
+// Description: define class network simulator;
 // ========================================
 #ifndef _NETWORK_H_
 #define _NETWORK_H_
@@ -29,41 +29,29 @@ class NetworkSimulatorSimple : public NetworkSimulatorBase {
 		//	t_vec: vector of starting time point of each individual neurons
 		//	dt_vec: vector of time step of each neurons
 		//	new_spikes: new spikes generated during dt, recorded in GLOBAL spike time.
-		void UpdateWithoutInteraction(NeuronPopulation* neuron_pop, std::vector<int>& update_list, std::vector<double>& t_vec, std::vector<double>& dt_vec, std::vector<SpikeElement>& new_spikes) {
-			new_spikes.clear();
-			double tmax, t, dt;
-      int idx;
-      for (size_t i = 0; i < update_list.size(); i ++) {
-        idx = update_list[i];
-        t = t_vec[i];
-        dt = dt_vec[i];
-        tmax = t + dt;
-        if (std::isnan(neuron_pop->inputs_vec_[idx].At().t) || neuron_pop->inputs_vec_[idx].At() >= tmax) {
-          neuron_pop->UpdateNeuronStateLocal(idx, t, dt, new_spikes);
-        } else {
-          if (neuron_pop->inputs_vec_[idx].At() != t) {
-            neuron_pop->UpdateNeuronStateLocal(idx, t, neuron_pop->inputs_vec_[idx].At().t - t, new_spikes);
-          }
-          size_t iter = 0;
-          while (true) {
-            // Update conductance due to the synaptic inputs;
-            neuron_pop->DeltaInteraction(neuron_pop->inputs_vec_[idx].At(iter), idx);
-
-            if (std::isnan(neuron_pop->inputs_vec_[idx].At(iter + 1).t) || neuron_pop->inputs_vec_[idx].At(iter + 1) >= tmax) {
-              neuron_pop->UpdateNeuronStateLocal(idx, neuron_pop->inputs_vec_[idx].At(iter).t, tmax - neuron_pop->inputs_vec_[idx].At(iter).t, new_spikes);
-              break;
-            } else {
-              neuron_pop->UpdateNeuronStateLocal(idx, neuron_pop->inputs_vec_[idx].At(iter).t, neuron_pop->inputs_vec_[idx].At(iter+1).t - neuron_pop->inputs_vec_[idx].At(iter).t, new_spikes);
-            }
-            iter ++;
-          }
+		void UpdateWithoutInteraction(NeuronPopulation* neuron_pop, std::vector<int>& update_list, std::vector<double>& t_vec, std::vector<double>& dt_vec, std::vector<SpikeTimeId>& new_spikes) {
+			double tmax, t;
+      for (const int& idx : update_list) {
+        t = t_vec[idx];
+        tmax = t + dt_vec[idx];
+        if (neuron_pop->inputs_vec_[idx].At().t< t) {
+          std::cout << "ERROR: invalid situation in Poisson input container\n";
         }
+        size_t iter = 0;
+        while (neuron_pop->inputs_vec_[idx].At(iter) < tmax) {
+          neuron_pop->UpdateNeuronStateLocal(idx, t, neuron_pop->inputs_vec_[idx].At(iter).t - t, new_spikes);
+          // Update conductance due to the synaptic inputs;
+          neuron_pop->DeltaInteraction(neuron_pop->inputs_vec_[idx].At(iter), idx);
+          t = neuron_pop->inputs_vec_[idx].At(iter).t;
+          iter ++;
+        }
+        neuron_pop->UpdateNeuronStateLocal(idx, t, tmax - t, new_spikes);
       }
     }
 
 		void UpdatePopulationState(NeuronPopulation *neuron_pop, double t, double dt) override {
       // update neurons without interactions
-      std::vector<SpikeElement> tmp_spikes;
+      std::vector<SpikeTimeId> tmp_spikes;
       std::vector<int> update_list;
       for (int i=0; i<neuron_pop->neuron_number_; i++)
         update_list.push_back(i);
@@ -74,16 +62,20 @@ class NetworkSimulatorSimple : public NetworkSimulatorBase {
 			if (neuron_pop->is_con_) {
 				for (auto iter = tmp_spikes.begin(); iter != tmp_spikes.end(); iter++ ) {
 					int IND = iter->index;
-					Spike ADD_mutual;
-					ADD_mutual.type = iter->type;
+					Spike spike_buffer;
+          if (IND < neuron_pop->Ne_) {
+            spike_buffer.type = true;
+          } else {
+            spike_buffer.type = false;
+          }
 					for (TySparseAdjMat::InnerIterator it(neuron_pop->s_mat_, IND); it; ++it) {
-						ADD_mutual.s = it.value();
+						spike_buffer.s = it.value();
+						spike_buffer.t = iter->t + neuron_pop->delay_mat_(it.index(), IND);
 						// Force the interneuronal interaction to the end of the time step
-            // TODO incorrect;
-						//ADD_mutual.t = dt + neuron_pop->delay_mat_(it.index(), IND);
-            neuron_pop->DeltaInteraction(ADD_mutual, it.index());
-//						neuron_pop->InjectSpike(ADD_mutual, it.index());
-						NEURON_INTERACTION_TIME ++;
+            if (spike_buffer.t < t + dt)
+              spike_buffer.t = t + dt;
+            neuron_pop->InjectSpike(spike_buffer, it.index());
+            NEURON_INTERACTION_TIME ++;
 					}
 				}
 			}
@@ -94,82 +86,122 @@ class NetworkSimulatorSimple : public NetworkSimulatorBase {
 };
 
 class NetworkSimulatorSSC : public NetworkSimulatorSimple {
-	private:
-		// Sort spikes within single time interval, and return the time of first spike;
-		void SortSpikes(NeuronPopulation *neuron_pop, TyDymVals &dym_vals_bk, std::vector<int> &update_list, std::vector<bool> &fired_list,
-        std::vector<double>& t_vec, std::vector<double>& dt_vec, std::vector<SpikeElement> &T) {
-      // restore states of neurons in update_list
-      double t_ref_bk;
-      for (auto iter = update_list.begin(); iter != update_list.end(); iter++) {
-        if (!fired_list[*iter]) {
-          memcpy(GetPtr(neuron_pop->dym_vals_, *iter), GetPtr(dym_vals_bk, *iter), sizeof(double)*neuron_pop->dym_n_);
-        } else {
-          // set artifitial refractory time to skip the update of membrane potential
-          t_ref_bk = neuron_pop->dym_vals_(*iter, neuron_pop->neuron_sim_->GetIDTR());
-          memcpy(GetPtr(neuron_pop->dym_vals_, *iter), GetPtr(dym_vals_bk, *iter), sizeof(double)*neuron_pop->dym_n_);
-          neuron_pop->dym_vals_(*iter, neuron_pop->neuron_sim_->GetIDV()) = neuron_pop->neuron_sim_->GetRestingPotential();
-          neuron_pop->dym_vals_(*iter, neuron_pop->neuron_sim_->GetIDTR()) = t_ref_bk + dt_vec[*iter];
-        }
-      }
-      std::vector<SpikeElement> tmp_spikes;
-      UpdateWithoutInteraction(neuron_pop, update_list, t_vec, dt_vec, tmp_spikes);
-      T.insert(T.end(), tmp_spikes.begin(), tmp_spikes.end());
-      std::sort(T.begin(), T.end());
-		}
-
 	public:
 		//	Update network state:
 		void UpdatePopulationState(NeuronPopulation *neuron_pop, double t, double dt) override {
       // backup neuron states
       TyDymVals dym_vals_bk(neuron_pop->neuron_number_, neuron_pop->dym_n_);
       memcpy(dym_vals_bk.data(), neuron_pop->dym_vals_.data(), sizeof(double)*neuron_pop->neuron_number_*neuron_pop->dym_n_);
+
       std::vector<int> affected_list;   // Attention: affected_list should not be sorted!
       std::vector<double> affected_list_strength;
-      std::vector<SpikeElement> new_spikes;
-      for (int i=0; i<neuron_pop->neuron_number_; i++)
+      std::vector<SpikeTimeId> new_spikes;
+      for (int i = 0; i<neuron_pop->neuron_number_; i++)
         affected_list.push_back(i);
       std::vector<double> t_vec(neuron_pop->neuron_number_, t);
       std::vector<double> dt_vec(neuron_pop->neuron_number_, dt);
       UpdateWithoutInteraction(neuron_pop, affected_list, t_vec, dt_vec, new_spikes);
-      if (!new_spikes.empty()) {
-        if (neuron_pop->is_con_) {
-          std::sort(new_spikes.begin(), new_spikes.end());
-          std::vector<bool> fired_list(neuron_pop->neuron_number_, false);
-          std::vector<SpikeElement> T = new_spikes;
-          double newt;
-          int IND;
-          while (!T.empty()) {
-            affected_list.clear();
-            //affected_list_strength.clear();
-            IND = T.front().index;
-            newt = T.front().t;
-            fired_list[IND] = true;
-            // perform synaptic interaction
-            Spike ADD_mutual;
-            ADD_mutual.type = T.front().type;
-            // erase used spiking events;
-            T.erase(T.begin());
-            neuron_pop->NewSpike(IND, newt);
-            for (TySparseAdjMat::InnerIterator it(neuron_pop->s_mat_, IND); it; ++it) {
-              ADD_mutual.s = it.value();
-              ADD_mutual.t = newt + neuron_pop->delay_mat_(it.index(), IND);
-              neuron_pop->InjectSpike(ADD_mutual, it.index());
-              //neuron_pop->DeltaInteraction(ADD_mutual, it.index());
-              NEURON_INTERACTION_TIME ++;
-              affected_list.push_back(it.index());
-              // Check whether this neuron appears in the firing list T;
-              for (size_t k = 0; k < T.size(); k ++) {
-                if (it.index() == T[k].index) {
-                  T.erase(T.begin() + k);
-                  break;
-                }
-              }
-              UpdateWithoutInteraction(neuron_pop, affected_list, t_vec, dt_vec, new_spikes);
-            }
-            SortSpikes(neuron_pop, dym_vals_bk, affected_list, fired_list, t_vec, dt_vec, T);
-          }
-        } else {
+      if (new_spikes.empty()) {
+        // do nothing
+      } else {
+        if (!neuron_pop->is_con_) {
           neuron_pop->NewSpike(new_spikes);
+        } else {
+          std::vector<bool> affected_list_bool(neuron_pop->neuron_number_, false);
+          std::vector<SpikeTimeId> missing_spikes;
+          while (!new_spikes.empty()) {
+            std::sort(new_spikes.begin(), new_spikes.end());
+            affected_list.clear();
+            affected_list_strength.clear();
+            affected_list_bool = std::vector<bool>(neuron_pop->neuron_number_, false);
+
+            int IND = new_spikes.front().index;
+            double newt = new_spikes.front().t;
+
+            // erase used spiking events;
+            new_spikes.erase(new_spikes.begin());
+
+            // get updating information
+            affected_list.push_back(IND);
+            affected_list_bool[IND] = true;
+            dt_vec[IND] = newt - t_vec[IND];
+            for (TySparseAdjMat::InnerIterator iit(neuron_pop->s_mat_, IND); iit; ++iit) {
+              affected_list.push_back(iit.index());
+              affected_list_bool[iit.index()] = true;
+              affected_list_strength.push_back(iit.value());
+              dt_vec[iit.index()] = newt-t_vec[iit.index()];
+              if (dt_vec[iit.index()] < 0) {
+                printf("ERROR: negative dt  = %f for affected neuron [%d] at global t = %f ms, local t = %f ms\n",
+                    dt_vec[iit.index()], iit.index(), t, t_vec[iit.index()]);
+                cout << "Current 'first' spike " << newt << endl;
+                throw runtime_error("");
+              }
+            }
+            // Check whether this neuron appears in the firing list new_spikes;
+            auto T_iter = new_spikes.begin();
+            while (T_iter != new_spikes.end()) {
+              if (affected_list_bool[T_iter->index]) {
+                T_iter = new_spikes.erase(T_iter);
+              } else {
+                T_iter ++;
+              }
+            }
+            // roll back affected_list
+            for (auto idx : affected_list) {
+              memcpy(GetPtr(neuron_pop->dym_vals_, idx), 
+                  GetPtr(dym_vals_bk, idx), 
+                  sizeof(double)*neuron_pop->dym_n_);
+            }
+            // update affected_list to newt
+            UpdateWithoutInteraction(neuron_pop, affected_list, t_vec, dt_vec, missing_spikes);
+            // Check missing spike due to the inaccurate estimation.
+            bool new_spike_toggle = false;
+            for (auto iter = missing_spikes.begin(); iter != missing_spikes.end(); iter++) {
+              if (iter->index == IND) {
+                new_spike_toggle=true;
+              } else {
+                fprintf(stderr, 
+                    "Missing spike before 'first' spike: [%d] neuron at t = %5.2f\n",
+                    iter->index, iter->t);
+                new_spikes.emplace_back(iter->index, newt);
+              }
+            }
+            if (!new_spike_toggle)
+              neuron_pop->neuron_sim_->ForceFire(GetPtr(neuron_pop->dym_vals_, IND));
+
+            missing_spikes.clear();
+
+            Spike spike_buffer;
+            neuron_pop->NewSpike(IND, newt);
+            if (IND < neuron_pop->Ne_) {
+              spike_buffer.type = true;
+            } else {
+              spike_buffer.type = false;
+            }
+
+            // perform synaptic interaction
+            //  (note: synaptic interaction should better perform 
+            //         before updating backup states to prevent failure)
+            for (size_t i = 1; i < affected_list.size(); i++) {
+              spike_buffer.s = affected_list_strength[i-1];
+              spike_buffer.t = newt + neuron_pop->delay_mat_(affected_list[i], IND);
+              neuron_pop->InjectSpike(spike_buffer, affected_list[i]);
+              NEURON_INTERACTION_TIME ++;
+            }
+
+            // update backup states of affected neurons
+            for (auto idx : affected_list) {
+              memcpy(GetPtr(dym_vals_bk, idx), 
+                  GetPtr(neuron_pop->dym_vals_, idx), 
+                  sizeof(double)*neuron_pop->dym_n_);
+              t_vec[idx] = newt;
+              dt_vec[idx] = t + dt - newt;
+              neuron_pop->CleanUsedInputs(idx, newt);
+            }
+            
+            // update affected list to the end of the time step
+            UpdateWithoutInteraction(neuron_pop, affected_list, t_vec, dt_vec, new_spikes);
+          }
         }
       }
       neuron_pop->CleanUsedInputs(t + dt);
