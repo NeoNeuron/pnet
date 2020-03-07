@@ -38,10 +38,10 @@ sei = Jei / np.sqrt(K)
 sii = Jii / np.sqrt(K)
 
 # poisson setting
-pr_e = 3.0     # unit Hz
-pr_i = 3.0     # unit Hz
-ps_e = 2.50e-1     # 
-ps_i = 0.50e-1    # 
+pr_e = 30.0     # unit Hz
+pr_i = 30.0     # unit Hz
+ps_e = 1.50e-2     # 
+ps_i = 0.50e-2    # 
 
 # rescale poisson
 pr_e *= K/1000
@@ -50,7 +50,7 @@ ps_e /= np.sqrt(K)
 ps_i /= np.sqrt(K)
 
 # time
-T = 1e3
+T = 4e3
 dt = 0.03125
 dt_sampling = 0.5
 # spatial location of neurons
@@ -58,11 +58,14 @@ dt_sampling = 0.5
 
 # print the estimated value of EPSPs and IPSPs
 
-print('see : %f ( %3.3f mV)' % (see, see*100*(1/0.5-1/2)))
-print('sie : %f ( %3.3f mV)' % (sie, sie*100*(1/0.5-1/2)))
-print('sei : %f (-%3.3f mV)' % (sei, sei*100/7*(1/0.5-1/80)))
-print('sii : %f (-%3.3f mV)' % (sii, sii*100/7*(1/0.5-1/80)))
-
+td_e=2
+td_i=10
+print('pse : {:5.1e} ( {:5.2f} mV)'.format(ps_e, ps_e*(458.08*td_e**0.25-506.87)))
+print('psi : {:5.1e} ( {:5.2f} mV)'.format(ps_i, ps_i*(458.08*td_e**0.25-506.87)))
+print('see : {:5.1e} ( {:5.2f} mV)'.format(see, see*(458.08*td_e**0.25-506.87)))
+print('sie : {:5.1e} ( {:5.2f} mV)'.format(sie, sie*(458.08*td_e**0.25-506.87)))
+print('sei : {:5.1e} (-{:5.2f} mV)'.format(sei, sei*(65.44*td_i**0.25-72.41)))
+print('sii : {:5.1e} (-{:5.2f} mV)'.format(sii, sii*(65.44*td_i**0.25-72.41)))
 #========================================
 np.random.seed(0)
 
@@ -81,21 +84,12 @@ for i in range(N):
 finish = time.time()
 print('>> adjacent matrix : %3.3f s' % (finish-start))
 
-#start = time.time()
-## regular network
-#mat = np.zeros((N,N))
-#for i in range(int(K/2)):
-#    mat += np.eye(N, k= i+1)
-#    mat += np.eye(N, k=-i-1)
-#finish = time.time()
-#print('>> adjacent matrix : %3.3f s' % (finish-start))
-
 # delay matrix
 # -----------------
 start = time.time()
 x,y = sn.gridmat(N)
 gd = np.vstack( (x.flatten(), y.flatten()) ).T
-dmat = sn.gen_delay_matrix(gd, 1.0)
+dmat = sn.gen_delay_matrix(gd, 0.0)
 finish = time.time()
 print('>> delay matrix : %3.3f s' % (finish-start))
 

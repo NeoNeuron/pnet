@@ -43,21 +43,14 @@ fig = plt.figure(figsize = (12,6), dpi = 80)
 
 # config the plotting range (unit millisecond)
 dt = 5
-if tmax >= 1000:
-    t_start = tmax - 1000
-else:
-    t_start = 0 
+t_start = (tmax - 1000 if tmax >= 1000 else 0)
 t_end = tmax 
 t = np.arange(t_start, t_end, dt)
 
 # draw raster plot
 start = time.time()
-exc_counter_max = 400
-inh_counter_max = 400
-if Ne < exc_counter_max:
-    exc_counter_max = Ne
-if Ni < inh_counter_max:
-    inh_counter_max = Ni
+exc_counter_max = (400 if Ne >= 400 else Ne)
+inh_counter_max = (400 if Ni >= 400 else Ni)
 
 ras = np.genfromtxt(args.dir + './raster.csv', delimiter = ',')
 exc_mask = (ras[:,0]<exc_counter_max)
@@ -77,7 +70,7 @@ print(">> raster plot time : %3.3f s" % (finish - start))
 
 # plot the histogram of mean firing rate
 start = time.time()
-mrate = np.zeros(neuron_num)
+mrate = np.zeros(neuron_num, dtype = float)
 isi_e = np.zeros(Ne)
 isi_i = np.zeros(Ni)
 for i in range(neuron_num):
@@ -93,14 +86,16 @@ for i in range(neuron_num):
             isi_e[i] = np.nan
         else:
             isi_i[i-Ne] = np.nan
+
+hist_max = mrate.max()/mrate.mean()
+hist_min = mrate.min()/mrate.mean()
+n1, edge1 = np.histogram(mrate[:Ne]/mrate.mean(), range=(hist_min, hist_max))
+n2, edge2 = np.histogram(mrate[Ne:]/mrate.mean(), range=(hist_min, hist_max))
 ax2 = plt.subplot2grid((2,3), (0,2), colspan = 1, rowspan = 1)
-n1, edge1 = np.histogram(mrate[:Ne]/mrate.mean(), 25)
-n2, edge2 = np.histogram(mrate[Ne:]/mrate.mean(), 25)
 n1 = n1*100/neuron_num
 n2 = n2*100/neuron_num
-ax2.bar(edge1[:-1], n1, color = 'r', width = edge1[1]-edge1[0], align='edge', label = 'Exc. neurons')
-ax2.bar(edge2[:-1], n2, color = 'b', width = edge2[1]-edge2[0], align='edge', label = 'Inh. neurons')
-#ax2.hist(mrate/(mrate.sum()/neuron_num), 50)
+ax2.bar(edge1[:-1], n1, color = 'r', width = edge1[1]-edge1[0], align='edge', alpha = 0.5, label = 'Exc. neurons')
+ax2.bar(edge2[:-1], n2, color = 'b', width = edge2[1]-edge2[0], align='edge', alpha = 0.5, label = 'Inh. neurons')
 ax2.set_xlabel('Rate/mean rate')
 ax2.set_ylabel('Pecentage of neurons (%)')
 ax2.set_title('Mean firing rate {:5.2f} Hz'.format(mrate.mean()/tmax*1e3))
@@ -121,8 +116,8 @@ else:
 # draw distribution of ISI of network
 start = time.time()
 ax3 = plt.subplot2grid((2,3), (1,2), colspan = 1, rowspan = 1)
-ax3.hist(isi_e[~np.isnan(isi_e)], 50, color = 'r', label = 'Exc. neurons')
-ax3.hist(isi_i[~np.isnan(isi_i)], int(50/Ne*Ni), color = 'b', label = 'Inh. neurons')
+ax3.hist(isi_e[~np.isnan(isi_e)], 50, color = 'r', alpha = 0.5, label = 'Exc. neurons')
+ax3.hist(isi_i[~np.isnan(isi_i)], int(50/Ne*Ni), color = 'b', alpha = 0.5, label = 'Inh. neurons')
 ax3.set_xlabel('ISI (ms)')
 ax3.set_ylabel('Number of Neurons')
 ax3.legend()
@@ -138,10 +133,11 @@ V = import_bin_data(args.dir + '/V.bin', use_col = sample_id)
 dt = float(config.get('time','stp'))
 t = np.arange(t_start, t_end, dt)
 t_start_id = int(t_start/dt)
-ax4.plot(t, V[t_start_id:t_start_id+len(t),0], 'r', label = 'sample Exc. V')
-ax4.plot(t, V[t_start_id:t_start_id+len(t),1], 'b', label = 'sample Inh. V')
+ax4.plot(t, -70 + 15*V[t_start_id:t_start_id+len(t),0], 'r', label = 'sample Exc. V')
+ax4.plot(t, -70 + 15*V[t_start_id:t_start_id+len(t),1], 'b', label = 'sample Inh. V')
 ax4.set_xlabel('Time (ms)')
-ax4.set_ylabel('Potential')
+ax4.set_ylabel('Voltage(mV)')
+ax4.set_xlim(t_start, t_end)
 if os.path.isfile(args.dir + '/I.bin'):
     I = import_bin_data(args.dir + '/I.bin', use_col = sample_id)
     ax4t = ax4.twinx()

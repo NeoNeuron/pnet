@@ -18,6 +18,7 @@ args = parser.parse_args()
 
 #network setting
 model = 'LIF_GH'
+simulator = 'SSC'
 Ne = 80    # No. of exc neuron
 Ni = 20    # No. of inh neuron
 K  = 10    # connection degree
@@ -50,23 +51,26 @@ ps_i /= np.sqrt(K)
 # timing
 reps = 10
 T = 1e3
-t0 = 0.25
+t0 = 0.5
 # spatial location of neurons
 # currently using square grid
 
 # print the estimated value of EPSPs and IPSPs
-print('see : %f ( %3.3f mV)' % (see, see*100*(1/1-1/2)))
-print('sie : %f ( %3.3f mV)' % (sie, sie*100*(1/1-1/2)))
-print('sei : %f (-%3.3f mV)' % (sei, sei*100/7*(1/1-1/10)))
-print('sii : %f (-%3.3f mV)' % (sii, sii*100/7*(1/1-1/10)))
+td_e=2
+td_i=10
+print('see : {:5.1e} ( {:5.2f} mV)'.format(see, see*(458.08*td_e**0.25-506.87)))
+print('sie : {:5.1e} ( {:5.2f} mV)'.format(sie, sie*(458.08*td_e**0.25-506.87)))
+print('sei : {:5.1e} (-{:5.2f} mV)'.format(sei, sei*(65.44*td_i**0.25-72.41)))
+print('sii : {:5.1e} (-{:5.2f} mV)'.format(sii, sii*(65.44*td_i**0.25-72.41)))
 
 #========================================
 # generate config file
 config = cp.ConfigParser()
 #---
 config.add_section('network')
-config['network']['ne']   = str(Ne) 
-config['network']['ni']   = str(Ni) 
+config['network']['ne']         = str(Ne) 
+config['network']['ni']         = str(Ni) 
+config['network']['simulator']  = simulator 
 #---
 config.add_section('neuron')
 config['neuron']['model']   = model
@@ -181,13 +185,13 @@ dat_mean = dat.mean(1)
 dat_spike_mean = dat_spike[:-1]
 
 # plot figure
-
+order = (1 if simulator = 'Simple' else 4)
 dt = np.logspace(1, dat.shape[0], num = dat.shape[0], base = 0.5)
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize = (12,5), dpi = 100)
 # subplot 1
 ax1.plot(dt, dat_mean, '-o', markerfacecolor = 'None', label = 'V')
-c_est = dat_mean[-1]/dt[-1]**4
-ax1.plot(dt, c_est*dt**4, label = '4th-order')
+c_est = dat_mean[-1]/dt[-1]**order
+ax1.plot(dt, c_est*dt**order, label = '{:d}-order'.format(order))
 ax1.set_xscale('log')
 ax1.set_yscale('log')
 ax1.legend()
@@ -197,8 +201,8 @@ ax1.set_xlabel('Timing step (ms)', fontsize = 12)
 ax1.set_ylabel('Relative deviation', fontsize = 12)
 # subplot 2
 ax2.plot(dt, dat_spike_mean, '-o', markerfacecolor = 'None', label = 'spike')
-c_est = dat_spike_mean[-1]/dt[-1]**4
-ax2.plot(dt, c_est*dt**4, label = '4th-order')
+c_est = dat_spike_mean[-1]/dt[-1]**order
+ax2.plot(dt, c_est*dt**order, label = '{:d}-order'.format(order))
 ax2.set_xscale('log')
 ax2.set_yscale('log')
 ax2.set_title('Convergence of Spike trains')

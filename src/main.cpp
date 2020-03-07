@@ -32,6 +32,7 @@ int main(int argc, const char* argv[]) {
 		// [network]
 		("network.ne", po::value<int>(), "number of Excitatory neurons")
 		("network.ni", po::value<int>(), "number of Inhibitory neurons")
+    ("network.simulator", po::value<string>(), "name of simulator")
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
 		("neuron.tref", po::value<double>()->default_value(2.0), "refractory period") 
@@ -85,19 +86,29 @@ int main(int argc, const char* argv[]) {
 	//
 	int Ne = vm["network.ne"].as<int>();
 	int Ni = vm["network.ni"].as<int>();
-	NeuronPopulation net(vm["neuron.model"].as<string>(), Ne, Ni);
+  NeuronPopulationBase* p_net = NULL;
+  if (vm["neuron.model"].as<std::string>() == "LIF_G") {
+    p_net = new NeuronPopulationNoContinuousCurrent<LIF_G>(Ne, Ni);
+  } else if (vm["neuron.model"].as<std::string>() == "LIF_GH") {
+    p_net = new NeuronPopulationNoContinuousCurrent<LIF_GH>(Ne, Ni);
+  } else if (vm["neuron.model"].as<std::string>() == "LIF_I") {
+    p_net = new NeuronPopulationNoContinuousCurrent<LIF_I>(Ne, Ni);
+  } else {
+    throw runtime_error("Invalid neuron type");
+  }
+
 	// Set interneuronal coupling strength;
-	net.InitializeSynapticStrength(vm);
-	net.InitializeSynapticDelay(vm);
-	net.SetRef(vm["neuron.tref"].as<double>());
+	p_net->InitializeSynapticStrength(vm);
+	p_net->InitializeSynapticDelay(vm);
+	p_net->SetRef(vm["neuron.tref"].as<double>());
 
 	// Set driving_mode;
 	rand_gen.seed(vm["driving.seed"].as<int>());
-	net.InitializePoissonGenerator(vm, 10);
+	p_net->InitializePoissonGenerator(vm, 10);
 
 	// Init raster output
 	string raster_path = dir + "raster.csv";
-	net.InitRasterOutput(raster_path);
+	p_net->InitRasterOutput(raster_path);
 
 	
 	// SETUP DYNAMICS:
@@ -136,17 +147,27 @@ int main(int argc, const char* argv[]) {
 
 	start = chrono::system_clock::now();
   dbg_printf(">>> number of Poisson spikes : %ld", POISSON_CALL_TIME);
-	NetworkSimulatorSSC net_sim;
+  NetworkSimulatorBase* net_sim = NULL;
+  if (vm["network.simulator"].as<string>() == "Simple") {
+    net_sim = new NetworkSimulatorSimple();
+  } else if (vm["network.simulator"].as<string>() == "SSC") {
+    net_sim = new NetworkSimulatorSSC();
+  } else if (vm["network.simulator"].as<string>() == "SSC_Sparse") {
+    net_sim = new NetworkSimulatorSSC_Sparse();
+  } else {
+    throw runtime_error("Invalid simulator type");
+  }
+
 	int progress = 0;
 	while (t < tmax) {
-		net_sim.UpdatePopulationState(&net, t, dt);
+		net_sim->UpdatePopulationState(p_net, t, dt);
 		t += dt;
 		// Output temporal data;
 		if (abs(recording_rate*t - floor(recording_rate*t)) == 0) {
-			if (v_flag) net.OutPotential(v_file);
-			if (i_flag) net.OutCurrent(i_file);
-			if (ge_flag) net.OutConductance(ge_file, true);
-			if (gi_flag) net.OutConductance(gi_file, false);
+			if (v_flag) p_net->OutPotential(v_file);
+			if (i_flag) p_net->OutCurrent(i_file);
+			if (ge_flag) p_net->OutConductance(ge_file, true);
+			if (gi_flag) p_net->OutConductance(gi_file, false);
 		}
     if (verbose) {
       if (floor(t / tmax * 100) > progress) {
@@ -157,7 +178,7 @@ int main(int argc, const char* argv[]) {
     }
 	}
 	finish = chrono::system_clock::now();
-  net.CloseRasterOutput();
+  p_net->CloseRasterOutput();
 
 	// delete files;
 	if (!v_flag) v_file.Remove();
@@ -166,8 +187,8 @@ int main(int argc, const char* argv[]) {
 	if (!gi_flag) gi_file.Remove();
 	
   if (verbose) {
-    printf(">>> number of Poisson spikes : %ld\n", POISSON_CALL_TIME);
     printf(">> Done!\n");
+    printf(">>> number of Poisson spikes : %ld\n", POISSON_CALL_TIME);
   }
 	
 	elapsed_seconds = finish-start;

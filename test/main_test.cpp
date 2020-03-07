@@ -28,6 +28,7 @@ int main(int argc, const char* argv[]) {
 		// [network]
 		("network.ne", po::value<int>(), "number of Excitatory neurons")
 		("network.ni", po::value<int>(), "number of Inhibitory neurons")
+    ("network.simulator", po::value<string>(), "name of simulator")
 		// [neuron]
 		("neuron.model", po::value<string>(), "type of neuronal model") 
 		("neuron.tref", po::value<double>(), "refractory period") 
@@ -71,11 +72,20 @@ int main(int argc, const char* argv[]) {
 	int Ne = vm["network.ne"].as<int>();
 	int Ni = vm["network.ni"].as<int>();
 	int neuron_number = Ne + Ni; 
-	NeuronPopulation net(vm["neuron.model"].as<string>(), Ne, Ni);
+  NeuronPopulationBase* p_net = NULL;
+  if (vm["neuron.model"].as<std::string>() == "LIF_G") {
+    p_net = new NeuronPopulationNoContinuousCurrent<LIF_G>(Ne, Ni);
+  } else if (vm["neuron.model"].as<std::string>() == "LIF_GH") {
+    p_net = new NeuronPopulationNoContinuousCurrent<LIF_GH>(Ne, Ni);
+  } else if (vm["neuron.model"].as<std::string>() == "LIF_I") {
+    p_net = new NeuronPopulationNoContinuousCurrent<LIF_I>(Ne, Ni);
+  } else {
+    throw runtime_error("Invalid neuron type");
+  }
 	// Set interneuronal coupling strength;
-	net.InitializeSynapticStrength(vm);
-	net.InitializeSynapticDelay(vm);
-	net.SetRef(vm["neuron.tref"].as<double>());
+	p_net->InitializeSynapticStrength(vm);
+	p_net->InitializeSynapticDelay(vm);
+	p_net->SetRef(vm["neuron.tref"].as<double>());
 
 	// Init raster output
 	string raster_path = dir + "raster.csv";
@@ -100,21 +110,30 @@ int main(int argc, const char* argv[]) {
 	printf(">> Initialization : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);
 	fflush(stdout);
 
-	NetworkSimulatorSSC net_sim;
+  NetworkSimulatorBase* net_sim = NULL;
+  if (vm["network.simulator"].as<string>() == "Simple") {
+    net_sim = new NetworkSimulatorSimple();
+  } else if (vm["network.simulator"].as<string>() == "SSC") {
+    net_sim = new NetworkSimulatorSSC();
+  } else if (vm["network.simulator"].as<string>() == "SSC_Sparse") {
+    net_sim = new NetworkSimulatorSSC_Sparse();
+  } else {
+    throw runtime_error("Invalid simulator type");
+  }
 	start = clock();
 	vector<vector<double> > spike_trains;
 	vector<double> add_spike_train;
 	rand_gen.seed(vm["driving.seed"].as<int>());
-	net.InitializePoissonGenerator(vm, 10);
+	p_net->InitializePoissonGenerator(vm, 10);
 	// Start loop;
 	for (int i = 0; i < reps; i++) {
-		net.InitRasterOutput(dir + "ras_" + to_string(i) + ".csv");
+		p_net->InitRasterOutput(dir + "ras_" + to_string(i) + ".csv");
 
 		while (t < tmax) {
-			net_sim.UpdatePopulationState(&net, t, dt);
+			net_sim->UpdatePopulationState(p_net, t, dt);
 			t += dt;
 		}
-		net.OutPotential(file);
+		p_net->OutPotential(file);
 		printf("Total inter-neuronal interaction : %ld\n", NEURON_INTERACTION_TIME);
 		printf("Total Poisson Number : %ld\n", POISSON_CALL_TIME);
 		t = 0;
@@ -122,8 +141,8 @@ int main(int argc, const char* argv[]) {
 		NEURON_INTERACTION_TIME = 0;
 		POISSON_CALL_TIME = 0;
     rand_gen.seed(vm["driving.seed"].as<int>());
-		net.RestoreNeurons();
-		net.CloseRasterOutput();
+		p_net->RestoreNeurons();
+		p_net->CloseRasterOutput();
 	}	
 	finish = clock();
 	printf(">> Total simulation : %3.3f s\n", (finish - start)*1.0 / CLOCKS_PER_SEC);	

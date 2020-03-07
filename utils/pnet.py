@@ -25,7 +25,7 @@ class network:
     >>> mat = np.zeros((100,100), dtype=int)
     >>> np.fill_diagonal(mat, 0)
     >>> dmat = np.zeros((100,100))
-    >>> pm = {'model': 'LIF_GH', 'tref': 2.0,
+    >>> pm = {'model': 'LIF_GH', 'simulator' : 'SSC', 'tref': 2.0,
     ...:  'see' : 1e-3, 'sie' : 1e-3, 'sei' : 5e-3, 'sii' : 5e-3,
     ...:  'synapse_file': 'smat.npy',
     ...:  'con_mat' : mat,
@@ -87,6 +87,7 @@ class network:
         self.config['network'] = {
                 'ne' : str(ne),
                 'ni' : str(ni),
+                'simulator' : 'Simple',
                 }
         self.config['neuron'] = {
                 'model' : 'LIF_GH',
@@ -169,7 +170,7 @@ class network:
         config_dict = {key:dict(self.config[key]) for key in self.config if key != 'DEFAULT'}
         return config_dict
 
-    def add(self, model = None,
+    def add(self, model = None, simulator = None,
             tref = None,
             con_mat = None,
             see = None, sie = None, sei = None, sii = None,
@@ -192,6 +193,8 @@ class network:
 
         model : string
             Type of neuronal model.
+        simulator : string
+            Type of network simulator.
         tref : float
             Refractory period.
         con_mat : array_like data of int
@@ -255,6 +258,13 @@ class network:
                 self.config['neuron']['model']  = model 
             else:
                 print('Warning: invalid model type. Default model (LIF_GH) applied')
+
+        if simulator is not None:
+            simulator_pool = ('Simple', 'SSC', 'SSC_Sparse')
+            if simulator in simulator_pool:
+                self.config['network']['simulator']  = simulator 
+            else:
+                print('Warning: invalid simulator type. Default simulator (Simple) applied')
 
         if tref is not None:
             self.config['neuron']['tref']   = str(tref)
