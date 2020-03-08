@@ -30,12 +30,14 @@ int main(int argc, const char* argv[]) {
 	po::options_description config("Configs");
 	config.add_options()
 		// [network]
-		("network.ne", po::value<int>(), "number of Excitatory neurons")
-		("network.ni", po::value<int>(), "number of Inhibitory neurons")
-    ("network.simulator", po::value<string>(), "name of simulator")
+		("network.ne", po::value<int>()->default_value(1), "number of Exc. neurons")
+		("network.ni", po::value<int>()->default_value(0), "number of Inh. neurons")
+    ("network.simulator", po::value<string>()->default_value("SSC"),
+     "One of Simple, SSC, SSC_Sparse.")
 		// [neuron]
-		("neuron.model", po::value<string>(), "type of neuronal model") 
-		("neuron.tref", po::value<double>()->default_value(2.0), "refractory period") 
+		("neuron.model", po::value<string>()->default_value("LIF_GH"),
+     "One of LIF_I, LIF_G, LIF_GH.") 
+		("neuron.tref", po::value<double>()->default_value(2.0), "(ms) refractory period") 
 		// [synapse]
 		("synapse.file", po::value<string>(), "file of synaptic strength")
 		// [space]
@@ -44,15 +46,15 @@ int main(int argc, const char* argv[]) {
 		("driving.file", po::value<string>()->default_value(""), "file of Poisson settings")
 		("driving.seed", po::value<int>(), "seed to generate Poisson point process")
 		// [time]
-		("time.t", po::value<double>(), "total simulation time")
-		("time.dt", po::value<double>(), "simulation time step")
-		("time.stp", po::value<double>(), "sampling time step")
+		("time.t", po::value<double>()->default_value(1000), "(ms) total simulation time")
+		("time.dt", po::value<double>()->default_value(0.03125), "(ms) simulation time step")
+		("time.stp", po::value<double>()->default_value(0.5), "(ms) sampling time step")
 		// [output]
 		("output.poi", po::value<bool>()->default_value(false), "output flag of Poisson Drive")
-		("output.v", po::value<bool>()->default_value(false), "output flag of V")
-		("output.i", po::value<bool>()->default_value(false), "output flag of I")
-		("output.ge", po::value<bool>()->default_value(false), "output flag of GE")
-		("output.gi", po::value<bool>()->default_value(false), "output flag of GI")
+		("output.v",  po::value<bool>()->default_value(false), "output flag of V to V.bin")
+		("output.i",  po::value<bool>()->default_value(false), "output flag of I to I.bin")
+		("output.ge", po::value<bool>()->default_value(false), "output flag of GE to GE.bin")
+		("output.gi", po::value<bool>()->default_value(false), "output flag of GI to GI.bin")
 		;
   po::options_description cml_options, config_file_options;
   cml_options.add(generic).add(config);

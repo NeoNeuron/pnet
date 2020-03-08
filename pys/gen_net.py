@@ -19,6 +19,7 @@ args = parser.parse_args()
 #========================================
 #network setting
 model = 'LIF_GH'
+simulator = 'SSC'
 Ne = 1200   # No. of exc neuron
 Ni = 400   # No. of inh neuron
 K  = 160    # connection degree
@@ -38,10 +39,10 @@ sei = Jei / np.sqrt(K)
 sii = Jii / np.sqrt(K)
 
 # poisson setting
-pr_e = 30.0     # unit Hz
-pr_i = 30.0     # unit Hz
-ps_e = 1.50e-2     # 
-ps_i = 0.50e-2    # 
+pr_e = 3.0      # unit Hz
+pr_i = 3.0      # unit Hz
+ps_e = 1.50e-1  # unscaled
+ps_i = 1.50e-1  # unscaled
 
 # rescale poisson
 pr_e *= K/1000
@@ -50,7 +51,7 @@ ps_e /= np.sqrt(K)
 ps_i /= np.sqrt(K)
 
 # time
-T = 4e3
+T = 1e3
 dt = 0.03125
 dt_sampling = 0.5
 # spatial location of neurons
@@ -95,7 +96,7 @@ print('>> delay matrix : %3.3f s' % (finish-start))
 
 # create network object
 net = pnet.network(Ne, Ni)
-pm = {'model': model,
+pm = {'model': model, 'simulator': simulator,
         'see' : see, 'sie' : sie, 'sei' : sei, 'sii' : sii, 
         'synapse_file': 'smat.npy',
         'con_mat' : mat,

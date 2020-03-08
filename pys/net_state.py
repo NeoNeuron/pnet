@@ -71,26 +71,25 @@ print(">> raster plot time : %3.3f s" % (finish - start))
 # plot the histogram of mean firing rate
 start = time.time()
 mrate = np.zeros(neuron_num, dtype = float)
-isi_e = np.zeros(Ne)
-isi_i = np.zeros(Ni)
+isi_e = np.array([])
+isi_i = np.array([])
 for i in range(neuron_num):
     i_mask = ras[:,0]==i
-    mrate[i] = (ras[:,0]==i).sum()
+    mrate[i] = i_mask.sum()
     if mrate[i] > 1:
         if i < Ne:
-            isi_e[i] = np.mean(np.diff(np.sort(ras[i_mask,1])))
+            isi_e = np.append(isi_e, np.diff(np.sort(ras[i_mask,1])))
         else:
-            isi_i[i-Ne] = np.mean(np.diff(np.sort(ras[i_mask,1])))
-    else:
-        if i < Ne:
-            isi_e[i] = np.nan
-        else:
-            isi_i[i-Ne] = np.nan
+            isi_i = np.append(isi_i, np.diff(np.sort(ras[i_mask,1])))
+if len(isi_e) == 0:
+    print('Too little spike to plot ISI statistics for Exc.')
+if len(isi_i) == 0:
+    print('Too little spike to plot ISI statistics for Inh.')
 
 hist_max = mrate.max()/mrate.mean()
 hist_min = mrate.min()/mrate.mean()
-n1, edge1 = np.histogram(mrate[:Ne]/mrate.mean(), range=(hist_min, hist_max))
-n2, edge2 = np.histogram(mrate[Ne:]/mrate.mean(), range=(hist_min, hist_max))
+n1, edge1 = np.histogram(mrate[:Ne]/mrate.mean(), bins = int(np.sqrt(neuron_num)), range=(hist_min, hist_max))
+n2, edge2 = np.histogram(mrate[Ne:]/mrate.mean(), bins = int(np.sqrt(neuron_num)), range=(hist_min, hist_max))
 ax2 = plt.subplot2grid((2,3), (0,2), colspan = 1, rowspan = 1)
 n1 = n1*100/neuron_num
 n2 = n2*100/neuron_num
@@ -115,9 +114,13 @@ else:
 
 # draw distribution of ISI of network
 start = time.time()
+isi_max = (isi_e.max() if isi_e.max()>isi_i.max() else isi_i.max())
+isi_min = (isi_e.min() if isi_e.min()<isi_i.min() else isi_i.min())
+n1, edge1 = np.histogram(isi_e, bins = int(np.sqrt(mrate.sum()*tmax/1e3)), range=(isi_min, isi_max))
+n2, edge2 = np.histogram(isi_i, bins = int(np.sqrt(mrate.sum()*tmax/1e3)), range=(isi_min, isi_max))
 ax3 = plt.subplot2grid((2,3), (1,2), colspan = 1, rowspan = 1)
-ax3.hist(isi_e[~np.isnan(isi_e)], 50, color = 'r', alpha = 0.5, label = 'Exc. neurons')
-ax3.hist(isi_i[~np.isnan(isi_i)], int(50/Ne*Ni), color = 'b', alpha = 0.5, label = 'Inh. neurons')
+ax3.bar(edge1[:-1], n1, color = 'r', width = edge1[1]-edge1[0], align='edge', alpha = 0.5, label = 'Exc. neurons')
+ax3.bar(edge2[:-1], n2, color = 'b', width = edge2[1]-edge2[0], align='edge', alpha = 0.5, label = 'Inh. neurons')
 ax3.set_xlabel('ISI (ms)')
 ax3.set_ylabel('Number of Neurons')
 ax3.legend()

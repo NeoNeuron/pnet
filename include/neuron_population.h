@@ -145,10 +145,14 @@ class NeuronPopulationNoContinuousCurrent:
 		// Initialize the delay of synaptic interaction;
     // TODO: improve the accuracy for large delay period in convergence test.
     void InitializeSynapticDelay(po::variables_map &vm) override {
-      string sfname = vm["prefix"].as<string>() + vm["space.file"].as<string>();
-      auto s_arr = cnpy::npy_load(sfname.c_str());
-      double* s_vals = s_arr.data<double>();
-      memcpy(delay_mat_.data(), s_vals, sizeof(double)*neuron_number_*neuron_number_);
+      if (vm.count("space.file")) {
+        string sfname = vm["prefix"].as<string>() + vm["space.file"].as<string>();
+        auto s_arr = cnpy::npy_load(sfname.c_str());
+        double* s_vals = s_arr.data<double>();
+        memcpy(delay_mat_.data(), s_vals, sizeof(double)*neuron_number_*neuron_number_);
+      } else {
+        delay_mat_ = TyDelayMatrix::Zero(neuron_number_, neuron_number_);
+      }
     }
 		
 		// Set time period of refractory:
