@@ -58,7 +58,7 @@ class NeuronPopulationBase {
     virtual void NewSpike(SpikeTimeId& spike) = 0;
     virtual void CleanUsedInputs(double tmax) = 0;
     virtual void CleanUsedInputs(int index, double tmax) = 0;
-    virtual void RestoreNeurons() = 0;
+    virtual void RestoreNeurons(int seed = NULL) = 0;
     
     // Outputs:
     virtual void OutPotential(FILEWRITE& file) = 0;
@@ -178,8 +178,10 @@ class NeuronPopulationNoContinuousCurrent:
       }
       // generate the first episode of Poisson sequence,
       // default episode length used here.
+      int seed = vm["driving.seed"].as<int>();
+      if (seed == NULL) seed = time(NULL);  // if no seed is given, use current time;
       for (int i = 0; i < neuron_number_; i++) {
-        inputs_vec_[i].InitInput();
+        inputs_vec_[i].InitInput(seed+i);
         inputs_vec_[i].CleanAndRefillPoisson(0.0); // fill the first portion of spikes;
         dbg_printf("number of Poisson spikes in %d's neuron: %ld", i, POISSON_CALL_TIME);
       }
@@ -246,11 +248,14 @@ class NeuronPopulationNoContinuousCurrent:
       inputs_vec_[index].CleanAndRefillPoisson(tmax);
     }
 
-		//	Restore neuronal state for all neurons, including neuronal potential, conductances, refractory periods and external network drive;
-    void RestoreNeurons() override {
+		//	Restore neuronal state for all neurons, including 
+    //    neuronal potential, conductances, refractory 
+    //    periods and external network drive;
+    void RestoreNeurons(int seed = NULL) override {
+      if (seed == NULL) seed = time(NULL);  // if no seed is given, use current time;
       for (int i = 0; i < neuron_number_; i++) {
         neuron_sim_.GetDefaultDymVal(GetDymPtr(i));
-        inputs_vec_[i].InitInput();
+        inputs_vec_[i].InitInput(seed+i);
         inputs_vec_[i].CleanAndRefillPoisson(0.0); // fill the first portion of spikes;
       }
     }

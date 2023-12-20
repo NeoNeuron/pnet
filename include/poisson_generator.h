@@ -83,6 +83,7 @@ class PoissonTimeGenerator {
 		double last_poisson_ = Inf; // last poisson time, used;
 		bool output_flag_ = false;
 		exponential_distribution<> exp_dis;
+    std::mt19937 rand_gen;
 		ofstream outfile_;
   public:
     PoissonTimeGenerator() : rate_(0.0) {  }
@@ -106,13 +107,14 @@ class PoissonTimeGenerator {
 			outfile_.open(filename);
 		}
 
-    double Init() {
+    double Init(int seed) {
       if (rate_ == 0) {
         last_poisson_ = Inf;
         return Inf;
       } else if (rate_ > 0) {
         last_poisson_	= 0;
         exp_dis = exponential_distribution<>(rate_);
+        rand_gen.seed(seed);
         return NextPoisson();
       } else {
         throw runtime_error("Error: negative Poisson rate.");
@@ -142,7 +144,7 @@ class TyPoissonInput: public TyNeuronalInput {
 		//TyPoissonInput(const TyPoissonInput&) {  }
 
     // Initialize Poisson generators
-		void InitInput(); 
+		void InitInput(int seed); 
 
     // Generate new Poisson series until tmax; 
 		void GenerateNewPoisson(double tmax);

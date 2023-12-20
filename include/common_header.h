@@ -16,8 +16,8 @@
 #include <cstdio>
 #include <stdexcept>
 #include <omp.h>
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Sparse>
 #include <boost/program_options.hpp>
 
 #ifndef DEBUG
@@ -32,7 +32,6 @@
 #define dNaN std::numeric_limits<double>::quiet_NaN()
 #define Inf  std::numeric_limits<double>::infinity();
 
-extern std::mt19937 rand_gen;
 extern size_t NEURON_INTERACTION_TIME;
 extern size_t SPIKE_NUMBER;
 extern size_t POISSON_CALL_TIME;

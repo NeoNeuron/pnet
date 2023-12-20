@@ -44,11 +44,11 @@ double PoissonTimeGenerator::NextPoisson() {
   return last_poisson_ += exp_dis(rand_gen);
 }
 
-void TyPoissonInput::InitInput() {
+void TyPoissonInput::InitInput(int seed) {
   TyNeuronalInput::Reset();
   double init_time_buffer;
   Spike spike_buffer;
-  init_time_buffer = gen_exc.Init();
+  init_time_buffer = gen_exc.Init(seed);
   if (std::isinf(init_time_buffer)) {
     pe_toggle = false;
   } else {
@@ -56,7 +56,8 @@ void TyPoissonInput::InitInput() {
     spike_buffer = Spike(true, init_time_buffer, pse);
     TyNeuronalInput::Inject(spike_buffer);
   }
-  init_time_buffer = gen_inh.Init();
+  // TODO: temporally use the same seed, yet the inh Poisson is usually not used.
+  init_time_buffer = gen_inh.Init(seed);
   if (std::isinf(init_time_buffer)) {
     pi_toggle = false;
   } else {
