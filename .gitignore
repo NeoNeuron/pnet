@@ -32,3 +32,6 @@ tmp
 *.jpg
 *.jpeg
 *.eps
+
+# ignore data files
+test_PSP

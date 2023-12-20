@@ -182,6 +182,7 @@ class NeuronPopulationNoContinuousCurrent:
       if (seed == NULL) seed = time(NULL);  // if no seed is given, use current time;
       for (int i = 0; i < neuron_number_; i++) {
         inputs_vec_[i].InitInput(seed+i);
+        // inputs_vec_[i].InitInput(seed);
         inputs_vec_[i].CleanAndRefillPoisson(0.0); // fill the first portion of spikes;
         dbg_printf("number of Poisson spikes in %d's neuron: %ld", i, POISSON_CALL_TIME);
       }
